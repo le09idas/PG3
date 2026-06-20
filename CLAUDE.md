@@ -39,11 +39,22 @@ trading, Pokémon Box, FR/LG, and Pal Park migration to Gen 4.
 - **Windows** — Porymap and visual/asset work.
 - Everything flows through git. **Pull before you work, push after.** Never edit the
   same files on both machines without syncing first.
+- Live in-game verification (mGBA save states for specific test scenarios) is the
+  user's domain — ask before trying to script a full in-game playthrough/navigation
+  to reach a test location.
+- Save files for testing different points in the game live in `test_game_saves/`
+  (e.g. a save parked right outside Altering Cave). Check there for a relevant save
+  before assuming one needs to be created.
 
 ## Conventions
 - Small, descriptively-messaged commits — `git log --oneline` should read like a changelog.
 - Update `DEVLOG.md` at the end of every working session (what changed, what's next, blockers).
 - Events/dialogue: prefer Poryscript. Maps: Porymap.
+- Event-script constants (`data/maps/*/scripts.inc`) only resolve if their header is
+  `#include`d near the top of `data/event_scripts.s` (the aggregator every map script
+  gets pulled into). Adding a script that references a constant from a header not
+  already in that list (e.g. a one-off `include/constants/*.h`) needs that `#include`
+  added there too, or it won't compile.
 
 ## Where to look
 - `ROADMAP.md` — the phased plan and feature list.
