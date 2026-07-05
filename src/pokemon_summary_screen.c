@@ -52,6 +52,7 @@ enum {
     PSS_PAGE_SKILLS,
     PSS_PAGE_BATTLE_MOVES,
     PSS_PAGE_CONTEST_MOVES,
+    PSS_PAGE_DETAILS,
     PSS_PAGE_COUNT,
 };
 
@@ -86,7 +87,8 @@ enum {
 #define PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER 17
 #define PSS_LABEL_WINDOW_PORTRAIT_NICKNAME 18 // The upper name
 #define PSS_LABEL_WINDOW_PORTRAIT_SPECIES 19 // The lower name
-#define PSS_LABEL_WINDOW_END 20
+#define PSS_LABEL_WINDOW_DETAILS_TITLE 20
+#define PSS_LABEL_WINDOW_END 21
 
 // Dynamic fields for the Pokémon Info page
 #define PSS_DATA_WINDOW_INFO_ORIGINAL_TRAINER 0
@@ -105,6 +107,10 @@ enum {
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
 #define PSS_DATA_WINDOW_MOVE_PP 1
 #define PSS_DATA_WINDOW_MOVE_DESCRIPTION 2
+
+// Dynamic fields for the Details page.
+#define PSS_DATA_WINDOW_DETAILS_STATS 0
+#define PSS_DATA_WINDOW_DETAILS_EGG   1
 
 #define MOVE_SELECTOR_SPRITES_COUNT 10
 #define TYPE_ICON_SPRITE_COUNT (MAX_MON_MOVES + 1)
@@ -281,6 +287,8 @@ static void Task_PrintBattleMoves(u8);
 static void PrintMoveNameAndPP(u8);
 static void PrintContestMoves(void);
 static void Task_PrintContestMoves(u8);
+static void PrintDetailsPageText(void);
+static void Task_PrintDetailsPage(u8);
 static void PrintContestMoveDescription(u8);
 static void PrintMoveDetails(u16);
 static void PrintNewMoveDetailsOrCancelText(void);
@@ -586,6 +594,15 @@ static const struct WindowTemplate sSummaryTemplate[] =
         .paletteNum = 6,
         .baseBlock = 413,
     },
+    [PSS_LABEL_WINDOW_DETAILS_TITLE] = {
+        .bg = 0,
+        .tilemapLeft = 0,
+        .tilemapTop = 0,
+        .width = 11,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 449,
+    },
     [PSS_LABEL_WINDOW_END] = DUMMY_WIN_TEMPLATE
 };
 static const struct WindowTemplate sPageInfoTemplate[] =
@@ -597,7 +614,7 @@ static const struct WindowTemplate sPageInfoTemplate[] =
         .width = 11,
         .height = 2,
         .paletteNum = 6,
-        .baseBlock = 449,
+        .baseBlock = 471,
     },
     [PSS_DATA_WINDOW_INFO_ID] = {
         .bg = 0,
@@ -606,7 +623,7 @@ static const struct WindowTemplate sPageInfoTemplate[] =
         .width = 7,
         .height = 2,
         .paletteNum = 6,
-        .baseBlock = 471,
+        .baseBlock = 493,
     },
     [PSS_DATA_WINDOW_INFO_ABILITY] = {
         .bg = 0,
@@ -615,7 +632,7 @@ static const struct WindowTemplate sPageInfoTemplate[] =
         .width = 18,
         .height = 4,
         .paletteNum = 6,
-        .baseBlock = 485,
+        .baseBlock = 507,
     },
     [PSS_DATA_WINDOW_INFO_MEMO] = {
         .bg = 0,
@@ -624,7 +641,7 @@ static const struct WindowTemplate sPageInfoTemplate[] =
         .width = 18,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 557,
+        .baseBlock = 579,
     },
 };
 static const struct WindowTemplate sPageSkillsTemplate[] =
@@ -636,7 +653,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 10,
         .height = 2,
         .paletteNum = 6,
-        .baseBlock = 449,
+        .baseBlock = 471,
     },
     [PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT] = {
         .bg = 0,
@@ -645,7 +662,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 10,
         .height = 2,
         .paletteNum = 6,
-        .baseBlock = 469,
+        .baseBlock = 491,
     },
     [PSS_DATA_WINDOW_SKILLS_STATS_LEFT] = {
         .bg = 0,
@@ -654,7 +671,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 6,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 489,
+        .baseBlock = 511,
     },
     [PSS_DATA_WINDOW_SKILLS_STATS_RIGHT] = {
         .bg = 0,
@@ -663,7 +680,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 3,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 525,
+        .baseBlock = 547,
     },
     [PSS_DATA_WINDOW_EXP] = {
         .bg = 0,
@@ -672,7 +689,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 6,
         .height = 4,
         .paletteNum = 6,
-        .baseBlock = 543,
+        .baseBlock = 565,
     },
 };
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for both battle and contest moves
@@ -684,7 +701,7 @@ static const struct WindowTemplate sPageMovesTemplate[] = // This is used for bo
         .width = 9,
         .height = 10,
         .paletteNum = 6,
-        .baseBlock = 449,
+        .baseBlock = 471,
     },
     [PSS_DATA_WINDOW_MOVE_PP] = {
         .bg = 0,
@@ -693,7 +710,7 @@ static const struct WindowTemplate sPageMovesTemplate[] = // This is used for bo
         .width = 6,
         .height = 10,
         .paletteNum = 8,
-        .baseBlock = 539,
+        .baseBlock = 561,
     },
     [PSS_DATA_WINDOW_MOVE_DESCRIPTION] = {
         .bg = 0,
@@ -702,7 +719,28 @@ static const struct WindowTemplate sPageMovesTemplate[] = // This is used for bo
         .width = 20,
         .height = 4,
         .paletteNum = 6,
-        .baseBlock = 599,
+        .baseBlock = 621,
+    },
+};
+static const struct WindowTemplate sPageDetailsTemplate[] =
+{
+    [PSS_DATA_WINDOW_DETAILS_STATS] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 4,
+        .width = 18,
+        .height = 14,
+        .paletteNum = 6,
+        .baseBlock = 471,
+    },
+    [PSS_DATA_WINDOW_DETAILS_EGG] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 18,
+        .width = 18,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 723,
     },
 };
 static const u8 sTextColors[][3] =
@@ -722,6 +760,48 @@ static const u8 sTextColors[][3] =
     {0, 7, 8}
 };
 
+static const u8 sEggGroupName_None[]         = _("---");
+static const u8 sEggGroupName_Monster[]      = _("Monster");
+static const u8 sEggGroupName_Water1[]       = _("Water 1");
+static const u8 sEggGroupName_Bug[]          = _("Bug");
+static const u8 sEggGroupName_Flying[]       = _("Flying");
+static const u8 sEggGroupName_Field[]        = _("Field");
+static const u8 sEggGroupName_Fairy[]        = _("Fairy");
+static const u8 sEggGroupName_Grass[]        = _("Grass");
+static const u8 sEggGroupName_HumanLike[]    = _("Human-Like");
+static const u8 sEggGroupName_Water3[]       = _("Water 3");
+static const u8 sEggGroupName_Mineral[]      = _("Mineral");
+static const u8 sEggGroupName_Amorphous[]    = _("Amorphous");
+static const u8 sEggGroupName_Water2[]       = _("Water 2");
+static const u8 sEggGroupName_Ditto[]        = _("Ditto");
+static const u8 sEggGroupName_Dragon[]       = _("Dragon");
+static const u8 sEggGroupName_Undiscovered[] = _("Undiscovered");
+static const u8 *const sEggGroupNames[] = {
+    sEggGroupName_None, sEggGroupName_Monster, sEggGroupName_Water1,
+    sEggGroupName_Bug, sEggGroupName_Flying, sEggGroupName_Field,
+    sEggGroupName_Fairy, sEggGroupName_Grass, sEggGroupName_HumanLike,
+    sEggGroupName_Water3, sEggGroupName_Mineral, sEggGroupName_Amorphous,
+    sEggGroupName_Water2, sEggGroupName_Ditto, sEggGroupName_Dragon,
+    sEggGroupName_Undiscovered,
+};
+
+static const u8 sDetailsIVLabel[]  = _("IV");
+static const u8 sDetailsEVLabel[]  = _("EV");
+static const u8 sDetailsEggPrefix[] = _("EGG: ");
+static const u8 sDetailsEggSlash[]  = _(" / ");
+static const u8 *const sDetailsStatLabels[] = {
+    gText_HP4, gText_Attack3, gText_Defense3,
+    gText_SpAtk4, gText_SpDef4, gText_Speed2,
+};
+static const u8 sDetailsIVDataIds[] = {
+    MON_DATA_HP_IV, MON_DATA_ATK_IV, MON_DATA_DEF_IV,
+    MON_DATA_SPATK_IV, MON_DATA_SPDEF_IV, MON_DATA_SPEED_IV,
+};
+static const u8 sDetailsEVDataIds[] = {
+    MON_DATA_HP_EV, MON_DATA_ATK_EV, MON_DATA_DEF_EV,
+    MON_DATA_SPATK_EV, MON_DATA_SPDEF_EV, MON_DATA_SPEED_EV,
+};
+
 static const u8 sButtons_Gfx[][4 * TILE_SIZE_4BPP] = {
     INCGFX_U8("graphics/summary_screen/a_button.png", ".4bpp"),
     INCGFX_U8("graphics/summary_screen/b_button.png", ".4bpp"),
@@ -732,7 +812,8 @@ static void (*const sTextPrinterFunctions[])(void) =
     [PSS_PAGE_INFO] = PrintInfoPageText,
     [PSS_PAGE_SKILLS] = PrintSkillsPageText,
     [PSS_PAGE_BATTLE_MOVES] = PrintBattleMoves,
-    [PSS_PAGE_CONTEST_MOVES] = PrintContestMoves
+    [PSS_PAGE_CONTEST_MOVES] = PrintContestMoves,
+    [PSS_PAGE_DETAILS] = PrintDetailsPageText,
 };
 
 static const TaskFunc sTextPrinterTasks[] =
@@ -740,7 +821,8 @@ static const TaskFunc sTextPrinterTasks[] =
     [PSS_PAGE_INFO] = Task_PrintInfoPage,
     [PSS_PAGE_SKILLS] = Task_PrintSkillsPage,
     [PSS_PAGE_BATTLE_MOVES] = Task_PrintBattleMoves,
-    [PSS_PAGE_CONTEST_MOVES] = Task_PrintContestMoves
+    [PSS_PAGE_CONTEST_MOVES] = Task_PrintContestMoves,
+    [PSS_PAGE_DETAILS] = Task_PrintDetailsPage,
 };
 
 static const u8 sMemoNatureTextColor[] = _("{COLOR LIGHT_RED}{SHADOW GREEN}");
@@ -1351,31 +1433,35 @@ static bool8 DecompressGraphics(void)
         sMonSummaryScreen->switchCounter++;
         break;
     case 6:
+        LZDecompressWram(gSummaryPage_Skills_Tilemap, sMonSummaryScreen->bgTilemapBuffers[PSS_PAGE_DETAILS][1]);
+        sMonSummaryScreen->switchCounter++;
+        break;
+    case 7:
         LoadCompressedPalette(gSummaryScreen_Pal, BG_PLTT_ID(0), 8 * PLTT_SIZE_4BPP);
         LoadPalette(&gPPTextPalette, BG_PLTT_ID(8) + 1, PLTT_SIZEOF(16 - 1));
         sMonSummaryScreen->switchCounter++;
         break;
-    case 7:
+    case 8:
         LoadCompressedSpriteSheet(&sSpriteSheet_MoveTypes);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 8:
+    case 9:
         LoadCompressedSpriteSheet(&sMoveSelectorSpriteSheet);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 9:
+    case 10:
         LoadCompressedSpriteSheet(&sStatusIconsSpriteSheet);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 10:
+    case 11:
         LoadCompressedSpritePalette(&sStatusIconsSpritePalette);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 11:
+    case 12:
         LoadCompressedSpritePalette(&sMoveSelectorSpritePal);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 12:
+    case 13:
         LoadCompressedPalette(gMoveTypes_Pal, OBJ_PLTT_ID(13), 3 * PLTT_SIZE_4BPP);
         sMonSummaryScreen->switchCounter = 0;
         return TRUE;
@@ -1492,7 +1578,7 @@ static void SetDefaultTilemaps(void)
 
     if (sMonSummaryScreen->summary.ailment == AILMENT_NONE)
         PositionStatusSlidingWindow(0, 0xFF);
-    else if (sMonSummaryScreen->currPageIndex != PSS_PAGE_BATTLE_MOVES && sMonSummaryScreen->currPageIndex != PSS_PAGE_CONTEST_MOVES)
+    else if (sMonSummaryScreen->currPageIndex == PSS_PAGE_SKILLS)
         PutWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_STATUS);
 
     LimitEggSummaryPageDisplay();
@@ -2839,6 +2925,7 @@ static void PrintPageNamesAndStats(void)
     PrintTextOnWindow(PSS_LABEL_WINDOW_POKEMON_SKILLS_TITLE, gText_PkmnSkills, 2, 1, 0, 1);
     PrintTextOnWindow(PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE, gText_BattleMoves, 2, 1, 0, 1);
     PrintTextOnWindow(PSS_LABEL_WINDOW_CONTEST_MOVES_TITLE, gText_ContestMoves, 2, 1, 0, 1);
+    PrintTextOnWindow(PSS_LABEL_WINDOW_DETAILS_TITLE, gText_PkmnData, 2, 1, 0, 1);
 
     stringXPos = GetStringRightAlignXOffset(FONT_NORMAL, gText_Cancel2, 62);
     iconXPos = stringXPos - 16;
@@ -2932,6 +3019,10 @@ static void PutPageWindowTilemaps(u8 page)
             PutWindowTilemap(PSS_LABEL_WINDOW_PROMPT_INFO);
         }
         break;
+    case PSS_PAGE_DETAILS:
+        PutWindowTilemap(PSS_LABEL_WINDOW_DETAILS_TITLE);
+        PutWindowTilemap(PSS_LABEL_WINDOW_PROMPT_CANCEL);
+        break;
     }
 
     for (i = 0; i < ARRAY_COUNT(sMonSummaryScreen->windowIds); i++)
@@ -2978,6 +3069,9 @@ static void ClearPageWindowTilemaps(u8 page)
         {
             ClearWindowTilemap(PSS_LABEL_WINDOW_PROMPT_INFO);
         }
+        break;
+    case PSS_PAGE_DETAILS:
+        ClearWindowTilemap(PSS_LABEL_WINDOW_PROMPT_CANCEL);
         break;
     }
 
@@ -3457,6 +3551,68 @@ static void PrintExpPointsNextLevel(void)
     PrintTextOnWindow(windowId, gStringVar1, x, 17, 0, 0);
 }
 
+static void PrintDetailsPageText(void)
+{
+    struct Pokemon *mon = &sMonSummaryScreen->currentMon;
+    u16 species = sMonSummaryScreen->summary.species;
+    u8 windowId, i, egg0, egg1, x;
+
+    if (sMonSummaryScreen->summary.isEgg)
+        return;
+
+    windowId = AddWindowFromTemplateList(sPageDetailsTemplate, PSS_DATA_WINDOW_DETAILS_STATS);
+
+    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsIVLabel, 94);
+    PrintTextOnWindow(windowId, sDetailsIVLabel, x, 1, 0, 1);
+    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsEVLabel, 136);
+    PrintTextOnWindow(windowId, sDetailsEVLabel, x, 1, 0, 1);
+
+    for (i = 0; i < 6; i++)
+    {
+        u8 y = 17 + i * 16;
+        u8 iv = GetMonData(mon, sDetailsIVDataIds[i], NULL);
+        u8 ev = GetMonData(mon, sDetailsEVDataIds[i], NULL);
+
+        PrintTextOnWindow(windowId, sDetailsStatLabels[i], 2, y, 0, 1);
+
+        ConvertIntToDecimalStringN(gStringVar1, iv, STR_CONV_MODE_RIGHT_ALIGN, 2);
+        x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 94);
+        PrintTextOnWindow(windowId, gStringVar1, x, y, 0, 0);
+
+        ConvertIntToDecimalStringN(gStringVar1, ev, STR_CONV_MODE_RIGHT_ALIGN, 3);
+        x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 136);
+        PrintTextOnWindow(windowId, gStringVar1, x, y, 0, 0);
+    }
+
+    egg0 = gSpeciesInfo[species].eggGroups[0];
+    egg1 = gSpeciesInfo[species].eggGroups[1];
+    windowId = AddWindowFromTemplateList(sPageDetailsTemplate, PSS_DATA_WINDOW_DETAILS_EGG);
+    StringCopy(gStringVar1, sDetailsEggPrefix);
+    StringAppend(gStringVar1, sEggGroupNames[egg0]);
+    if (egg1 != 0 && egg1 != egg0)
+    {
+        StringAppend(gStringVar1, sDetailsEggSlash);
+        StringAppend(gStringVar1, sEggGroupNames[egg1]);
+    }
+    PrintTextOnWindow(windowId, gStringVar1, 2, 1, 0, 0);
+}
+
+static void Task_PrintDetailsPage(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
+
+    switch (data[0])
+    {
+    case 1:
+        PrintDetailsPageText();
+        break;
+    case 2:
+        DestroyTask(taskId);
+        return;
+    }
+    data[0]++;
+}
+
 static void PrintBattleMoves(void)
 {
     PrintMoveNameAndPP(0);
@@ -3778,6 +3934,7 @@ static void SetTypeIcons(void)
     switch (sMonSummaryScreen->currPageIndex)
     {
     case PSS_PAGE_INFO:
+    case PSS_PAGE_DETAILS:
         SetMonTypeIcons();
         break;
     case PSS_PAGE_BATTLE_MOVES:

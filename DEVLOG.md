@@ -6,6 +6,32 @@ read it first.
 
 ---
 
+## 2026-07-05 — Summary screen "POKéMON DATA" page (IVs / EVs / Egg Groups)
+
+- Added a new 5th summary screen page `PSS_PAGE_DETAILS` ("POKéMON DATA") accessible by scrolling past the Contest Moves page.
+- Page shows per-stat IV (0–31) and EV (0–255) for all 6 stats in a two-column table, plus the Pokémon's egg group(s) in a footer line ("EGG: Group1 / Group2").
+- Implementation in `src/pokemon_summary_screen.c`:
+  - New page enum entry, window constants, static title window at baseBlock=449 (all prior dynamic-window baseBlocks shifted +22 to accommodate).
+  - New `sPageDetailsTemplate[]` with STATS window (18×14 tiles, tilemapTop=4) and EGG window (18×2 tiles, tilemapTop=18).
+  - New `sEggGroupNames[]` table (16 entries, all 15 Gen-3 egg groups + Undiscovered).
+  - `PrintDetailsPageText()` / `Task_PrintDetailsPage()` read IVs and EVs via `GetMonData()` and egg groups via `gSpeciesInfo[species].eggGroups[]`.
+  - Reuses `gSummaryPage_Skills_Tilemap` as the background for the new page; content windows cover the content area.
+  - STATUS sliding window restricted to `PSS_PAGE_SKILLS` only (was: any non-Moves page).
+  - Egg Pokémon skip the page content (return early); navigation to the page is still technically possible but harmless.
+- Not yet built/tested in mGBA — needs a build run on Ubuntu to confirm compile and in-game layout.
+
+**Current phase:** Phase 1 in progress — Altering Cave + summary DATA page shipped (pending build).
+
+**Next up:**
+- Build and verify DATA page in mGBA (pixel alignment may need tweaking after seeing it).
+- Continue Phase 1: B-to-run, faster text, reusable TMs; or event ticket availability.
+
+**Known issues / open decisions:**
+- IV/EV column pixel positions (x=94 for IV column, x=136 for EV column) chosen by calculation; may need minor adjustment after visual check in mGBA.
+- Skipped physical/special split per user request.
+
+---
+
 ## 2026-06-20 — Phase 0 complete; Phase 1 kickoff (Altering Cave scoped)
 - Installed the devkitARM toolchain on Ubuntu.
 - Cloned pret/pokeemerald; renamed its remote to `upstream`.
