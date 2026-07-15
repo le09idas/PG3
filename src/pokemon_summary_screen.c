@@ -100,6 +100,8 @@ enum {
 // Dynamic fields for the Pokémon Skills page
 #define PSS_DATA_WINDOW_SKILLS_STATS_LEFT  0 // HP, Attack, Defense
 #define PSS_DATA_WINDOW_SKILLS_STATS_RIGHT 1 // Sp. Attack, Sp. Defense, Speed
+#define PSS_DATA_WINDOW_SKILLS_NATURE      2 // Nature name + stat modifier
+#define PSS_DATA_WINDOW_SKILLS_ABILITY     3 // Ability name + description
 
 // Dynamic fields for the Battle Moves and Contest Moves pages.
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
@@ -275,6 +277,8 @@ static void BufferLeftColumnStats(void);
 static void PrintLeftColumnStats(void);
 static void BufferRightColumnStats(void);
 static void PrintRightColumnStats(void);
+static void PrintNatureInfo(void);
+static void PrintSkillsAbility(void);
 static void PrintExpPointsNextLevel(void);
 static void PrintBattleMoves(void);
 static void Task_PrintBattleMoves(u8);
@@ -651,21 +655,39 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
 {
     [PSS_DATA_WINDOW_SKILLS_STATS_LEFT] = {
         .bg = 0,
-        .tilemapLeft = 16,
-        .tilemapTop = 7,
-        .width = 6,
+        .tilemapLeft = 11,
+        .tilemapTop = 4,
+        .width = 10,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 471,
+        .baseBlock = 471,  // size 10x6=60 → ends at 531
     },
     [PSS_DATA_WINDOW_SKILLS_STATS_RIGHT] = {
         .bg = 0,
-        .tilemapLeft = 27,
-        .tilemapTop = 7,
-        .width = 3,
+        .tilemapLeft = 21,
+        .tilemapTop = 4,
+        .width = 9,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 507,
+        .baseBlock = 531,  // size 9x6=54 → ends at 585
+    },
+    [PSS_DATA_WINDOW_SKILLS_NATURE] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 10,
+        .width = 18,
+        .height = 4,
+        .paletteNum = 6,
+        .baseBlock = 585,  // size 18x4=72 → ends at 657
+    },
+    [PSS_DATA_WINDOW_SKILLS_ABILITY] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 14,
+        .width = 18,
+        .height = 6,
+        .paletteNum = 6,
+        .baseBlock = 657,  // size 18x6=108 → ends at 765
     },
 };
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for both battle and contest moves
@@ -767,6 +789,20 @@ static const u8 sDetailsEggPrefix[] = _("EGG: ");
 static const u8 sInfoItemPrefix[]    = _("ITEM: ");
 static const u8 sInfoExpLabel[]      = _("EXP PTS");
 static const u8 sInfoToNextLabel[]   = _("TO NEXT LV.");
+static const u8 sNatureLabel[]          = _("NATURE: ");
+static const u8 sAbilityLabel[]         = _("ABILITY: ");
+static const u8 sNatureBoostPrefix[]   = _("+");
+static const u8 sNatureDropPrefix[]    = _(" / -");
+static const u8 sNatureMarkerBoost[]   = _("(+)");
+static const u8 sNatureMarkerDrop[]    = _("(-)");
+static const u8 sNatureNoEffect[]      = _("No stat changes");
+static const u8 *const sNatureStatNames[] = {
+    gText_Attack3,
+    gText_Defense3,
+    gText_Speed2,
+    gText_SpAtk3,
+    gText_SpDef3,
+};
 static const u8 sDetailsEggSlash[]  = _(" / ");
 static const u8 *const sDetailsStatLabels[] = {
     gText_HP4, gText_Attack3, gText_Defense3,
@@ -806,8 +842,8 @@ static const TaskFunc sTextPrinterTasks[] =
 
 static const u8 sMemoNatureTextColor[] = _("{COLOR LIGHT_RED}{SHADOW GREEN}");
 static const u8 sMemoMiscTextColor[] = _("{COLOR WHITE}{SHADOW DARK_GRAY}"); // This is also affected by palettes, apparently
-static const u8 sStatsLeftColumnLayout[] = _("{DYNAMIC 0}/{DYNAMIC 1}\n{DYNAMIC 2}\n{DYNAMIC 3}");
-static const u8 sStatsRightColumnLayout[] = _("{DYNAMIC 0}\n{DYNAMIC 1}\n{DYNAMIC 2}");
+static const u8 sStatsLeftColumnLayout[] = _("HP  {DYNAMIC 0}/{DYNAMIC 1}\nATK {DYNAMIC 2}\nDEF {DYNAMIC 3}");
+static const u8 sStatsRightColumnLayout[] = _("SATK {DYNAMIC 0}\nSDEF {DYNAMIC 1}\nSPD  {DYNAMIC 2}");
 static const u8 sMovesPPLayout[] = _("{PP}{DYNAMIC 0}/{DYNAMIC 1}");
 
 #define TAG_MOVE_SELECTOR 30000
@@ -3304,6 +3340,8 @@ static void PrintSkillsPageText(void)
     PrintLeftColumnStats();
     BufferRightColumnStats();
     PrintRightColumnStats();
+    PrintNatureInfo();
+    PrintSkillsAbility();
 }
 
 static void Task_PrintSkillsPage(u8 taskId)
@@ -3325,6 +3363,12 @@ static void Task_PrintSkillsPage(u8 taskId)
         PrintRightColumnStats();
         break;
     case 5:
+        PrintNatureInfo();
+        break;
+    case 6:
+        PrintSkillsAbility();
+        break;
+    case 7:
         DestroyTask(taskId);
         return;
     }
@@ -3383,13 +3427,18 @@ static void BufferLeftColumnStats(void)
 {
     u8 *currentHPString = Alloc(8);
     u8 *maxHPString = Alloc(8);
-    u8 *attackString = Alloc(8);
-    u8 *defenseString = Alloc(8);
+    u8 *attackString = Alloc(16);
+    u8 *defenseString = Alloc(16);
+    const s8 *natRow = gNatureStatTable[sMonSummaryScreen->summary.nature];
 
     ConvertIntToDecimalStringN(currentHPString, sMonSummaryScreen->summary.currentHP, STR_CONV_MODE_RIGHT_ALIGN, 3);
     ConvertIntToDecimalStringN(maxHPString, sMonSummaryScreen->summary.maxHP, STR_CONV_MODE_RIGHT_ALIGN, 3);
-    ConvertIntToDecimalStringN(attackString, sMonSummaryScreen->summary.atk, STR_CONV_MODE_RIGHT_ALIGN, 7);
-    ConvertIntToDecimalStringN(defenseString, sMonSummaryScreen->summary.def, STR_CONV_MODE_RIGHT_ALIGN, 7);
+    ConvertIntToDecimalStringN(attackString, sMonSummaryScreen->summary.atk, STR_CONV_MODE_RIGHT_ALIGN, 3);
+    if (natRow[0] > 0) StringAppend(attackString, sNatureMarkerBoost);
+    else if (natRow[0] < 0) StringAppend(attackString, sNatureMarkerDrop);
+    ConvertIntToDecimalStringN(defenseString, sMonSummaryScreen->summary.def, STR_CONV_MODE_RIGHT_ALIGN, 3);
+    if (natRow[1] > 0) StringAppend(defenseString, sNatureMarkerBoost);
+    else if (natRow[1] < 0) StringAppend(defenseString, sNatureMarkerDrop);
 
     DynamicPlaceholderTextUtil_Reset();
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, currentHPString);
@@ -3411,9 +3460,17 @@ static void PrintLeftColumnStats(void)
 
 static void BufferRightColumnStats(void)
 {
+    const s8 *natRow = gNatureStatTable[sMonSummaryScreen->summary.nature];
+
     ConvertIntToDecimalStringN(gStringVar1, sMonSummaryScreen->summary.spatk, STR_CONV_MODE_RIGHT_ALIGN, 3);
+    if (natRow[3] > 0) StringAppend(gStringVar1, sNatureMarkerBoost);
+    else if (natRow[3] < 0) StringAppend(gStringVar1, sNatureMarkerDrop);
     ConvertIntToDecimalStringN(gStringVar2, sMonSummaryScreen->summary.spdef, STR_CONV_MODE_RIGHT_ALIGN, 3);
+    if (natRow[4] > 0) StringAppend(gStringVar2, sNatureMarkerBoost);
+    else if (natRow[4] < 0) StringAppend(gStringVar2, sNatureMarkerDrop);
     ConvertIntToDecimalStringN(gStringVar3, sMonSummaryScreen->summary.speed, STR_CONV_MODE_RIGHT_ALIGN, 3);
+    if (natRow[2] > 0) StringAppend(gStringVar3, sNatureMarkerBoost);
+    else if (natRow[2] < 0) StringAppend(gStringVar3, sNatureMarkerDrop);
 
     DynamicPlaceholderTextUtil_Reset();
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gStringVar1);
@@ -3450,6 +3507,54 @@ static void PrintExpPointsNextLevel(void)
     ConvertIntToDecimalStringN(gStringVar1, expToNextLevel, STR_CONV_MODE_RIGHT_ALIGN, 6);
     x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 144);
     PrintTextOnWindow(windowId, gStringVar1, x, 13, 0, 0);
+}
+
+static void PrintNatureInfo(void)
+{
+    u8 nature = sMonSummaryScreen->summary.nature;
+    u8 windowId = AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_NATURE);
+    const s8 *row = gNatureStatTable[nature];
+    int i, boostStat = -1, dropStat = -1;
+
+    // Line 1: "NATURE: Bashful"
+    StringCopy(gStringVar4, sNatureLabel);
+    StringAppend(gStringVar4, gNatureNamePointers[nature]);
+    PrintTextOnWindow(windowId, gStringVar4, 0, 1, 0, 0);
+
+    // Find which stat is boosted (+1) and which is dropped (-1)
+    for (i = 0; i < 5; i++)
+    {
+        if (row[i] > 0) boostStat = i;
+        if (row[i] < 0) dropStat  = i;
+    }
+
+    // Line 2: stat modifier string
+    if (boostStat == -1)
+    {
+        PrintTextOnWindow(windowId, sNatureNoEffect, 0, 17, 0, 0);
+    }
+    else
+    {
+        StringCopy(gStringVar4, sNatureBoostPrefix);
+        StringAppend(gStringVar4, sNatureStatNames[boostStat]);
+        StringAppend(gStringVar4, sNatureDropPrefix);
+        StringAppend(gStringVar4, sNatureStatNames[dropStat]);
+        PrintTextOnWindow(windowId, gStringVar4, 0, 17, 0, 0);
+    }
+}
+
+static void PrintSkillsAbility(void)
+{
+    u8 windowId = AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_ABILITY);
+    u8 ability = GetAbilityBySpecies(sMonSummaryScreen->summary.species, sMonSummaryScreen->summary.abilityNum);
+
+    // Line 1: "ABILITY: Blaze"
+    StringCopy(gStringVar4, sAbilityLabel);
+    StringAppend(gStringVar4, gAbilityNames[ability]);
+    PrintTextOnWindow(windowId, gStringVar4, 0, 1, 0, 0);
+
+    // Line 2: ability description
+    PrintTextOnWindow(windowId, gAbilityDescriptionPointers[ability], 0, 17, 0, 0);
 }
 
 static void PrintDetailsPageText(void)
