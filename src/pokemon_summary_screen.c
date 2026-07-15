@@ -92,16 +92,14 @@ enum {
 
 // Dynamic fields for the Pokémon Info page
 #define PSS_DATA_WINDOW_INFO_ORIGINAL_TRAINER 0
-#define PSS_DATA_WINDOW_INFO_ID 1
-#define PSS_DATA_WINDOW_INFO_ABILITY 2
-#define PSS_DATA_WINDOW_INFO_MEMO 3
+#define PSS_DATA_WINDOW_INFO_ID               1
+#define PSS_DATA_WINDOW_INFO_HELD_ITEM        2
+#define PSS_DATA_WINDOW_INFO_RIBBON_COUNT     3
+#define PSS_DATA_WINDOW_INFO_EXP              4
 
 // Dynamic fields for the Pokémon Skills page
-#define PSS_DATA_WINDOW_SKILLS_HELD_ITEM 0
-#define PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT 1
-#define PSS_DATA_WINDOW_SKILLS_STATS_LEFT 2 // HP, Attack, Defense
-#define PSS_DATA_WINDOW_SKILLS_STATS_RIGHT 3 // Sp. Attack, Sp. Defense, Speed
-#define PSS_DATA_WINDOW_EXP 4 // Exp, next level
+#define PSS_DATA_WINDOW_SKILLS_STATS_LEFT  0 // HP, Attack, Defense
+#define PSS_DATA_WINDOW_SKILLS_STATS_RIGHT 1 // Sp. Attack, Sp. Defense, Speed
 
 // Dynamic fields for the Battle Moves and Contest Moves pages.
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
@@ -260,10 +258,6 @@ static void PrintInfoPageText(void);
 static void Task_PrintInfoPage(u8);
 static void PrintMonOTName(void);
 static void PrintMonOTID(void);
-static void PrintMonAbilityName(void);
-static void PrintMonAbilityDescription(void);
-static void BufferMonTrainerMemo(void);
-static void PrintMonTrainerMemo(void);
 static void BufferNatureString(void);
 static void GetMetLevelString(u8 *);
 static bool8 DoesMonOTMatchOwner(void);
@@ -625,45 +619,36 @@ static const struct WindowTemplate sPageInfoTemplate[] =
         .paletteNum = 6,
         .baseBlock = 493,
     },
-    [PSS_DATA_WINDOW_INFO_ABILITY] = {
+    [PSS_DATA_WINDOW_INFO_HELD_ITEM] = {
         .bg = 0,
         .tilemapLeft = 11,
         .tilemapTop = 9,
         .width = 18,
-        .height = 4,
+        .height = 2,
         .paletteNum = 6,
         .baseBlock = 507,
     },
-    [PSS_DATA_WINDOW_INFO_MEMO] = {
+    [PSS_DATA_WINDOW_INFO_RIBBON_COUNT] = {
         .bg = 0,
         .tilemapLeft = 11,
-        .tilemapTop = 14,
+        .tilemapTop = 12,
         .width = 18,
-        .height = 6,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 543,
+    },
+    [PSS_DATA_WINDOW_INFO_EXP] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 15,
+        .width = 18,
+        .height = 4,
         .paletteNum = 6,
         .baseBlock = 579,
     },
 };
 static const struct WindowTemplate sPageSkillsTemplate[] =
 {
-    [PSS_DATA_WINDOW_SKILLS_HELD_ITEM] = {
-        .bg = 0,
-        .tilemapLeft = 10,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 471,
-    },
-    [PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT] = {
-        .bg = 0,
-        .tilemapLeft = 20,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 491,
-    },
     [PSS_DATA_WINDOW_SKILLS_STATS_LEFT] = {
         .bg = 0,
         .tilemapLeft = 16,
@@ -671,7 +656,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 6,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 511,
+        .baseBlock = 471,
     },
     [PSS_DATA_WINDOW_SKILLS_STATS_RIGHT] = {
         .bg = 0,
@@ -680,16 +665,7 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .width = 3,
         .height = 6,
         .paletteNum = 6,
-        .baseBlock = 547,
-    },
-    [PSS_DATA_WINDOW_EXP] = {
-        .bg = 0,
-        .tilemapLeft = 24,
-        .tilemapTop = 14,
-        .width = 6,
-        .height = 4,
-        .paletteNum = 6,
-        .baseBlock = 565,
+        .baseBlock = 507,
     },
 };
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for both battle and contest moves
@@ -3132,10 +3108,9 @@ static void PrintInfoPageText(void)
     {
         PrintMonOTName();
         PrintMonOTID();
-        PrintMonAbilityName();
-        PrintMonAbilityDescription();
-        BufferMonTrainerMemo();
-        PrintMonTrainerMemo();
+        PrintHeldItemName();
+        PrintRibbonCount();
+        PrintExpPointsNextLevel();
     }
 }
 
@@ -3151,18 +3126,15 @@ static void Task_PrintInfoPage(u8 taskId)
         PrintMonOTID();
         break;
     case 3:
-        PrintMonAbilityName();
+        PrintHeldItemName();
         break;
     case 4:
-        PrintMonAbilityDescription();
+        PrintRibbonCount();
         break;
     case 5:
-        BufferMonTrainerMemo();
+        PrintExpPointsNextLevel();
         break;
     case 6:
-        PrintMonTrainerMemo();
-        break;
-    case 7:
         DestroyTask(taskId);
         return;
     }
@@ -3193,75 +3165,6 @@ static void PrintMonOTID(void)
         xPos = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 56);
         PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_ID), gStringVar1, xPos, 1, 0, 1);
     }
-}
-
-static void PrintMonAbilityName(void)
-{
-    u8 ability = GetAbilityBySpecies(sMonSummaryScreen->summary.species, sMonSummaryScreen->summary.abilityNum);
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_ABILITY), gAbilityNames[ability], 0, 1, 0, 1);
-}
-
-static void PrintMonAbilityDescription(void)
-{
-    u8 ability = GetAbilityBySpecies(sMonSummaryScreen->summary.species, sMonSummaryScreen->summary.abilityNum);
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_ABILITY), gAbilityDescriptionPointers[ability], 0, 17, 0, 0);
-}
-
-static void BufferMonTrainerMemo(void)
-{
-    struct PokeSummary *sum = &sMonSummaryScreen->summary;
-    const u8 *text;
-
-    DynamicPlaceholderTextUtil_Reset();
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, sMemoNatureTextColor);
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, sMemoMiscTextColor);
-    BufferNatureString();
-
-    if (InBattleFactory() == TRUE || InSlateportBattleTent() == TRUE || IsInGamePartnerMon() == TRUE)
-    {
-        DynamicPlaceholderTextUtil_ExpandPlaceholders(gStringVar4, gText_XNature);
-    }
-    else
-    {
-        u8 *metLevelString = Alloc(32);
-        u8 *metLocationString = Alloc(32);
-        GetMetLevelString(metLevelString);
-
-        if (sum->metLocation < MAPSEC_NONE)
-        {
-            GetMapNameHandleAquaHideout(metLocationString, sum->metLocation);
-            DynamicPlaceholderTextUtil_SetPlaceholderPtr(4, metLocationString);
-        }
-
-        if (DoesMonOTMatchOwner() == TRUE)
-        {
-            if (sum->metLevel == 0)
-                text = (sum->metLocation >= MAPSEC_NONE) ? gText_XNatureHatchedSomewhereAt : gText_XNatureHatchedAtYZ;
-            else
-                text = (sum->metLocation >= MAPSEC_NONE) ? gText_XNatureMetSomewhereAt : gText_XNatureMetAtYZ;
-        }
-        else if (sum->metLocation == METLOC_FATEFUL_ENCOUNTER)
-        {
-            text = gText_XNatureFatefulEncounter;
-        }
-        else if (sum->metLocation != METLOC_IN_GAME_TRADE && DidMonComeFromGBAGames())
-        {
-            text = (sum->metLocation >= MAPSEC_NONE) ? gText_XNatureObtainedInTrade : gText_XNatureProbablyMetAt;
-        }
-        else
-        {
-            text = gText_XNatureObtainedInTrade;
-        }
-
-        DynamicPlaceholderTextUtil_ExpandPlaceholders(gStringVar4, text);
-        Free(metLevelString);
-        Free(metLocationString);
-    }
-}
-
-static void PrintMonTrainerMemo(void)
-{
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_MEMO), gStringVar4, 0, 1, 0, 0);
 }
 
 static void BufferNatureString(void)
@@ -3365,7 +3268,7 @@ static void PrintEggState(void)
     else
         text = gText_EggWillTakeALongTime;
 
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_ABILITY), text, 0, 1, 0, 0);
+    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_HELD_ITEM), text, 0, 1, 0, 0);
 }
 
 static void PrintEggMemo(void)
@@ -3389,18 +3292,15 @@ static void PrintEggMemo(void)
         text = gText_OddEggFoundByCouple;
     }
 
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_MEMO), text, 0, 1, 0, 0);
+    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_EXP), text, 0, 1, 0, 0);
 }
 
 static void PrintSkillsPageText(void)
 {
-    PrintHeldItemName();
-    PrintRibbonCount();
     BufferLeftColumnStats();
     PrintLeftColumnStats();
     BufferRightColumnStats();
     PrintRightColumnStats();
-    PrintExpPointsNextLevel();
 }
 
 static void Task_PrintSkillsPage(u8 taskId)
@@ -3410,27 +3310,18 @@ static void Task_PrintSkillsPage(u8 taskId)
     switch (data[0])
     {
     case 1:
-        PrintHeldItemName();
-        break;
-    case 2:
-        PrintRibbonCount();
-        break;
-    case 3:
         BufferLeftColumnStats();
         break;
-    case 4:
+    case 2:
         PrintLeftColumnStats();
         break;
-    case 5:
+    case 3:
         BufferRightColumnStats();
         break;
-    case 6:
+    case 4:
         PrintRightColumnStats();
         break;
-    case 7:
-        PrintExpPointsNextLevel();
-        break;
-    case 8:
+    case 5:
         DestroyTask(taskId);
         return;
     }
@@ -3459,7 +3350,7 @@ static void PrintHeldItemName(void)
     }
 
     x = GetStringCenterAlignXOffset(FONT_NORMAL, text, 72) + 6;
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_HELD_ITEM), text, x, 1, 0, 0);
+    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_HELD_ITEM), text, x, 1, 0, 0);
 }
 
 static void PrintRibbonCount(void)
@@ -3479,7 +3370,7 @@ static void PrintRibbonCount(void)
     }
 
     x = GetStringCenterAlignXOffset(FONT_NORMAL, text, 70) + 6;
-    PrintTextOnWindow(AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT), text, x, 1, 0, 0);
+    PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_RIBBON_COUNT), text, x, 1, 0, 0);
 }
 
 static void BufferLeftColumnStats(void)
@@ -3533,7 +3424,7 @@ static void PrintRightColumnStats(void)
 static void PrintExpPointsNextLevel(void)
 {
     struct PokeSummary *sum = &sMonSummaryScreen->summary;
-    u8 windowId = AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_EXP);
+    u8 windowId = AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_EXP);
     int x;
     u32 expToNextLevel;
 
