@@ -6,6 +6,45 @@ read it first.
 
 ---
 
+## 2026-07-15 — Summary screen full QoL pass (INFO / SKILLS / DATA pages)
+
+All changes are in `src/pokemon_summary_screen.c` and the two background binaries in `graphics/summary_screen/`.
+
+### INFO page
+- Removed: ability name and trainer memo section.
+- Added: held item ("ITEM: [name]"), ribbon count, current EXP ("EXP PTS") and EXP to next level ("TO NEXT LV.").
+- OT name and OT ID retained.
+- Binary-patched `page_info.bin` to clear the old "ABILITY" and "TRAINER MEMO" label rows (rows 8 and 13, cols 11–29 set to spacer tile).
+
+### SKILLS page
+- Removed: separate "STATS" heading window (blocked by the panel header at row 2 — will be added as background art in Tilemap Studio later).
+- Stats section (rows 4–9): two-column layout — HP/ATK/DEF on left (cols 11–20, `PSS_DATA_WINDOW_SKILLS_STATS_LEFT`), SATK/SDEF/SPD on right (cols 21–29, `PSS_DATA_WINDOW_SKILLS_STATS_RIGHT`). Nature modifier printed inline next to the affected stat as `(+)` or `(-)`.
+- Nature section (rows 10–13): `"NATURE: [name]"` on line 1, `"+ATK / -SP.ATK"` (or `"No stat changes"`) on line 2.
+- Ability section (rows 14–19): `"ABILITY: [name]"` on line 1, description on line 2.
+- Binary-patched `page_skills.bin` to shift and blank the old stat-label tile rows.
+
+### DATA page
+- Replaced egg group footer with a met description section (`PSS_DATA_WINDOW_DETAILS_MET`, rows 3–6): compact single-line format — "Met: Lv.5, Route 101", "Obtained in a trade", "Fateful encounter at Lv.30", etc. IV/EV column headers ("IV" / "EV") printed on the second line of this window so they sit directly above the stat table.
+- IV/EV stat table (`PSS_DATA_WINDOW_DETAILS_STATS`, rows 7–18): 6 stat rows at 15 px each, no separate header row. Same two-column IV / EV layout as before.
+- Removed all egg group strings (`sEggGroupNames[]` etc.) from this file — egg group belongs in the Pokédex, to be re-added there later.
+
+### Pending visual polish (not yet done)
+- Tilemap Studio redesign of `page_info.bin` and `page_skills.bin` to match the new 3-section layouts — deferred until all 5 pages are settled.
+- BATTLE MOVES page: consider adding ability name + description.
+
+**Current phase:** Phase 1 in progress — summary screen QoL pass complete (placeholder layouts confirmed in mGBA; background art redesign pending).
+
+**Next up:**
+- Tilemap Studio pass on INFO and SKILLS backgrounds (Windows machine).
+- Decide whether to add ability info to the BATTLE MOVES page.
+- Continue Phase 1: B-to-run, faster text, reusable TMs, or event tickets.
+
+**Known issues / open decisions:**
+- "STATS" section header on SKILLS page is absent — panel header at rows 0–2 blocks any BG0 window there; needs to be baked into the tilemap background.
+- IV/EV column x-positions (94 / 136) chosen by calculation; verify pixel alignment after Tilemap Studio redesign.
+
+---
+
 ## 2026-07-05 — Summary screen "POKéMON DATA" page (IVs / EVs / Egg Groups)
 
 - Added a new 5th summary screen page `PSS_PAGE_DETAILS` ("POKéMON DATA") accessible by scrolling past the Contest Moves page.
