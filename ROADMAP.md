@@ -3,35 +3,51 @@
 **Base:** vanilla pret/pokeemerald · **Scope:** Gen 3 only, full real-cart interop preserved.
 **North star:** a game spanning three Gen 3 regions. **Near-term:** a complete, replayable Hoenn first.
 
+Each item below is tagged by change type: **[One-off]** single value/file edits,
+**[Programmatic]** rematches/events/special encounters/new logic,
+**[Visual]** graphical/UI work, **[Map]** new or newly-accessible areas.
+
 ## Phase 0 — Working build ✅
 Toolchain, repo + remotes, `make modern`, boots in mGBA.
 
 ## Phase 1 — Low-risk wins (learn the edit → build → test loop)
 Roughly this order, interleaving data work and QoL:
-- **QoL:** physical/special split (local, interop-safe); summary-screen info
-  (category icons, egg group, IVs/nature); comfort features (B-to-run, faster text,
-  reusable TMs).
-- **In-game availability / cut content:** repopulate Altering Cave; make the event
-  tickets obtainable in-game (Old Sea Map → Mew, Aurora → Deoxys, Mystic →
-  Ho-Oh/Lugia, Eon → Lati@s) and restore the islands/encounters.
-- **Trade-evolution alternatives:** in-game methods (e.g. Machoke + a special item)
-  so the dex is completable solo. Interop-safe — evolution method is local logic.
-- **Encounter overhaul:** rewrite wild tables map-wide — fauna consistency
-  (e.g. common Zigzagoon + rare Linoone), surprise high-level encounters, soft
-  level-gating; shiny-rate changes / flag-linked shiny boosts. Keep player-obtainable
-  Pokémon legal.
+- **QoL:**
+  - [Programmatic] physical/special split (local, interop-safe).
+  - [Programmatic] summary-screen info (category icons, egg group, IVs/nature,
+    ability) — code/logic side done (2026-07-15 pass); see Visual below for the
+    matching background redesign.
+  - [One-off] comfort features (B-to-run, faster text, reusable TMs).
+- **In-game availability / cut content:**
+  - [Programmatic] repopulate Altering Cave — done (random-per-visit roll). ✅
+  - [Programmatic] make the event tickets obtainable in-game (Old Sea Map → Mew,
+    Aurora → Deoxys, Mystic → Ho-Oh/Lugia, Eon → Lati@s).
+  - [Map] restore the islands (Southern Island, Navel Rock, Birth Island,
+    Faraway Island) and their encounters — existing map data, currently
+    inaccessible without the event scripts above.
+- **Trade-evolution alternatives:**
+  - [Programmatic] in-game methods (e.g. Machoke + a special item) so the dex is
+    completable solo. Interop-safe — evolution method is local logic.
+- **Encounter overhaul:**
+  - [Programmatic] rewrite wild tables map-wide — fauna consistency (e.g. common
+    Zigzagoon + rare Linoone), surprise high-level encounters, soft level-gating;
+    shiny-rate changes / flag-linked shiny boosts. Keep player-obtainable Pokémon
+    legal.
+- **Visual (pending, Windows/Tilemap Studio):**
+  - [Visual] summary screen INFO/SKILLS background redesign to match the new
+    3-section layouts (see DEVLOG 2026-07-15).
 
-## Phase 2 — Match Call / rematch overhaul (the centerpiece)
+## Phase 2 — Match Call / rematch overhaul (the centerpiece) — [Programmatic]
 Distinct, escalating rosters for trainers, rivals, gym leaders, and the Elite Four,
 gated on **progression flags** (got Fly, beat E4, etc.) instead of vanilla randomness.
 Prototype ONE gym leader end-to-end before scaling out. Heaviest C work; trainer
 rosters are interop-exempt, so teams can be anything.
 
-## Phase 3 — Plot hooks
+## Phase 3 — Plot hooks — [Programmatic]
 Scripted scenarios that hand the player the tickets / unlock the cut content
 (optionally gated behind battles). Mostly Poryscript. Depends on Phase 1 content.
 
-## Phase 4 — Pokédex research depth (capstone)
+## Phase 4 — Pokédex research depth (capstone) — [Programmatic]
 Modern-style catch/battle-X tasks with rewards. Custom system.
 
 ## Optional / parked
