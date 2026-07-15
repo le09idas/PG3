@@ -109,8 +109,8 @@ enum {
 #define PSS_DATA_WINDOW_MOVE_DESCRIPTION 2
 
 // Dynamic fields for the Details page.
-#define PSS_DATA_WINDOW_DETAILS_STATS 0
-#define PSS_DATA_WINDOW_DETAILS_EGG   1
+#define PSS_DATA_WINDOW_DETAILS_MET   0  // met description + IV/EV column headers
+#define PSS_DATA_WINDOW_DETAILS_STATS 1  // IV/EV stat table
 
 #define MOVE_SELECTOR_SPRITES_COUNT 10
 #define TYPE_ICON_SPRITE_COUNT (MAX_MON_MOVES + 1)
@@ -722,23 +722,23 @@ static const struct WindowTemplate sPageMovesTemplate[] = // This is used for bo
 };
 static const struct WindowTemplate sPageDetailsTemplate[] =
 {
+    [PSS_DATA_WINDOW_DETAILS_MET] = {
+        .bg = 0,
+        .tilemapLeft = 11,
+        .tilemapTop = 3,
+        .width = 18,
+        .height = 4,
+        .paletteNum = 6,
+        .baseBlock = 471,  // size 18x4=72 → ends at 543
+    },
     [PSS_DATA_WINDOW_DETAILS_STATS] = {
         .bg = 0,
         .tilemapLeft = 11,
-        .tilemapTop = 4,
+        .tilemapTop = 7,
         .width = 18,
-        .height = 14,
+        .height = 12,
         .paletteNum = 6,
-        .baseBlock = 471,
-    },
-    [PSS_DATA_WINDOW_DETAILS_EGG] = {
-        .bg = 0,
-        .tilemapLeft = 11,
-        .tilemapTop = 18,
-        .width = 18,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 723,
+        .baseBlock = 543,  // size 18x12=216 → ends at 759
     },
 };
 static const u8 sTextColors[][3] =
@@ -758,34 +758,17 @@ static const u8 sTextColors[][3] =
     {0, 7, 8}
 };
 
-static const u8 sEggGroupName_None[]         = _("---");
-static const u8 sEggGroupName_Monster[]      = _("Monster");
-static const u8 sEggGroupName_Water1[]       = _("Water 1");
-static const u8 sEggGroupName_Bug[]          = _("Bug");
-static const u8 sEggGroupName_Flying[]       = _("Flying");
-static const u8 sEggGroupName_Field[]        = _("Field");
-static const u8 sEggGroupName_Fairy[]        = _("Fairy");
-static const u8 sEggGroupName_Grass[]        = _("Grass");
-static const u8 sEggGroupName_HumanLike[]    = _("Human-Like");
-static const u8 sEggGroupName_Water3[]       = _("Water 3");
-static const u8 sEggGroupName_Mineral[]      = _("Mineral");
-static const u8 sEggGroupName_Amorphous[]    = _("Amorphous");
-static const u8 sEggGroupName_Water2[]       = _("Water 2");
-static const u8 sEggGroupName_Ditto[]        = _("Ditto");
-static const u8 sEggGroupName_Dragon[]       = _("Dragon");
-static const u8 sEggGroupName_Undiscovered[] = _("Undiscovered");
-static const u8 *const sEggGroupNames[] = {
-    sEggGroupName_None, sEggGroupName_Monster, sEggGroupName_Water1,
-    sEggGroupName_Bug, sEggGroupName_Flying, sEggGroupName_Field,
-    sEggGroupName_Fairy, sEggGroupName_Grass, sEggGroupName_HumanLike,
-    sEggGroupName_Water3, sEggGroupName_Mineral, sEggGroupName_Amorphous,
-    sEggGroupName_Water2, sEggGroupName_Ditto, sEggGroupName_Dragon,
-    sEggGroupName_Undiscovered,
-};
+// Met description strings for the DATA page (compact single-line format).
+// {DYNAMIC 0} = met level, {DYNAMIC 1} = map name (where applicable).
+static const u8 sMetAt[]               = _("Met: {LV_2}{DYNAMIC 0}, {DYNAMIC 1}");
+static const u8 sMetHatched[]          = _("Hatched: {LV_2}{DYNAMIC 0}, {DYNAMIC 1}");
+static const u8 sMetTrade[]            = _("Obtained in a trade");
+static const u8 sMetFateful[]          = _("Fateful encounter at {LV_2}{DYNAMIC 0}");
+static const u8 sMetSomewhere[]        = _("Met somewhere at {LV_2}{DYNAMIC 0}");
+static const u8 sMetHatchedSomewhere[] = _("Hatched somewhere at {LV_2}{DYNAMIC 0}");
 
 static const u8 sDetailsIVLabel[]  = _("IV");
 static const u8 sDetailsEVLabel[]  = _("EV");
-static const u8 sDetailsEggPrefix[] = _("EGG: ");
 static const u8 sInfoItemPrefix[]    = _("ITEM: ");
 static const u8 sInfoExpLabel[]      = _("EXP PTS");
 static const u8 sInfoToNextLabel[]   = _("TO NEXT LV.");
@@ -803,7 +786,6 @@ static const u8 *const sNatureStatNames[] = {
     gText_SpAtk3,
     gText_SpDef3,
 };
-static const u8 sDetailsEggSlash[]  = _(" / ");
 static const u8 *const sDetailsStatLabels[] = {
     gText_HP4, gText_Attack3, gText_Defense3,
     gText_SpAtk4, gText_SpDef4, gText_Speed2,
@@ -3557,25 +3539,65 @@ static void PrintSkillsAbility(void)
     PrintTextOnWindow(windowId, gAbilityDescriptionPointers[ability], 0, 17, 0, 0);
 }
 
+static void PrintDetailsMetDescription(u8 windowId)
+{
+    struct PokeSummary *sum = &sMonSummaryScreen->summary;
+    u8 metLevelBuf[4];
+    const u8 *template;
+    u8 level = sum->metLevel;
+    u8 x;
+    bool8 hasLocation = (sum->metLocation != METLOC_FATEFUL_ENCOUNTER
+                      && sum->metLocation != METLOC_IN_GAME_TRADE
+                      && sum->metLocation != METLOC_SPECIAL_EGG);
+
+    if (level == 0)
+        level = EGG_HATCH_LEVEL;
+    ConvertIntToDecimalStringN(metLevelBuf, level, STR_CONV_MODE_LEFT_ALIGN, 3);
+
+    DynamicPlaceholderTextUtil_Reset();
+    DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, metLevelBuf);
+    if (hasLocation)
+    {
+        GetMapName(gStringVar2, sum->metLocation, 0);
+        DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, gStringVar2);
+    }
+
+    if (sum->metLocation == METLOC_FATEFUL_ENCOUNTER)
+        template = sMetFateful;
+    else if (sum->metLocation == METLOC_IN_GAME_TRADE
+          || !DidMonComeFromGBAGames()
+          || !DoesMonOTMatchOwner())
+        template = sMetTrade;
+    else if (sum->metLevel == 0)
+        template = hasLocation ? sMetHatched : sMetHatchedSomewhere;
+    else
+        template = hasLocation ? sMetAt : sMetSomewhere;
+
+    DynamicPlaceholderTextUtil_ExpandPlaceholders(gStringVar4, template);
+    PrintTextOnWindow(windowId, gStringVar4, 2, 1, 0, 0);
+
+    // IV/EV column headers sit on the second line, aligning above the stat table below
+    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsIVLabel, 94);
+    PrintTextOnWindow(windowId, sDetailsIVLabel, x, 17, 0, 1);
+    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsEVLabel, 136);
+    PrintTextOnWindow(windowId, sDetailsEVLabel, x, 17, 0, 1);
+}
+
 static void PrintDetailsPageText(void)
 {
     struct Pokemon *mon = &sMonSummaryScreen->currentMon;
-    u16 species = sMonSummaryScreen->summary.species;
-    u8 windowId, i, egg0, egg1, x;
+    u8 windowId, i, x;
 
     if (sMonSummaryScreen->summary.isEgg)
         return;
 
+    windowId = AddWindowFromTemplateList(sPageDetailsTemplate, PSS_DATA_WINDOW_DETAILS_MET);
+    PrintDetailsMetDescription(windowId);
+
     windowId = AddWindowFromTemplateList(sPageDetailsTemplate, PSS_DATA_WINDOW_DETAILS_STATS);
-
-    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsIVLabel, 94);
-    PrintTextOnWindow(windowId, sDetailsIVLabel, x, 1, 0, 1);
-    x = GetStringRightAlignXOffset(FONT_NORMAL, sDetailsEVLabel, 136);
-    PrintTextOnWindow(windowId, sDetailsEVLabel, x, 1, 0, 1);
-
     for (i = 0; i < 6; i++)
     {
-        u8 y = 17 + i * 16;
+        u8 y = 1 + i * 15;
         u8 iv = GetMonData(mon, sDetailsIVDataIds[i], NULL);
         u8 ev = GetMonData(mon, sDetailsEVDataIds[i], NULL);
 
@@ -3589,18 +3611,6 @@ static void PrintDetailsPageText(void)
         x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 136);
         PrintTextOnWindow(windowId, gStringVar1, x, y, 0, 0);
     }
-
-    egg0 = gSpeciesInfo[species].eggGroups[0];
-    egg1 = gSpeciesInfo[species].eggGroups[1];
-    windowId = AddWindowFromTemplateList(sPageDetailsTemplate, PSS_DATA_WINDOW_DETAILS_EGG);
-    StringCopy(gStringVar1, sDetailsEggPrefix);
-    StringAppend(gStringVar1, sEggGroupNames[egg0]);
-    if (egg1 != 0 && egg1 != egg0)
-    {
-        StringAppend(gStringVar1, sDetailsEggSlash);
-        StringAppend(gStringVar1, sEggGroupNames[egg1]);
-    }
-    PrintTextOnWindow(windowId, gStringVar1, 2, 1, 0, 0);
 }
 
 static void Task_PrintDetailsPage(u8 taskId)
