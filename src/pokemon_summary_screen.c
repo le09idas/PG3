@@ -764,6 +764,9 @@ static const u8 *const sEggGroupNames[] = {
 static const u8 sDetailsIVLabel[]  = _("IV");
 static const u8 sDetailsEVLabel[]  = _("EV");
 static const u8 sDetailsEggPrefix[] = _("EGG: ");
+static const u8 sInfoItemPrefix[]    = _("ITEM: ");
+static const u8 sInfoExpLabel[]      = _("EXP PTS");
+static const u8 sInfoToNextLabel[]   = _("TO NEXT LV.");
 static const u8 sDetailsEggSlash[]  = _(" / ");
 static const u8 *const sDetailsStatLabels[] = {
     gText_HP4, gText_Attack3, gText_Defense3,
@@ -3333,23 +3336,26 @@ static void PrintHeldItemName(void)
     const u8 *text;
     int x;
 
+    StringCopy(gStringVar4, sInfoItemPrefix);
+
     if (sMonSummaryScreen->summary.item == ITEM_ENIGMA_BERRY
         && IsMultiBattle() == TRUE
         && (sMonSummaryScreen->curMonIndex == 1 || sMonSummaryScreen->curMonIndex == 4 || sMonSummaryScreen->curMonIndex == 5))
     {
-        text = GetItemName(ITEM_ENIGMA_BERRY);
+        StringAppend(gStringVar4, GetItemName(ITEM_ENIGMA_BERRY));
     }
     else if (sMonSummaryScreen->summary.item == ITEM_NONE)
     {
-        text = gText_None;
+        StringAppend(gStringVar4, gText_None);
     }
     else
     {
         CopyItemName(sMonSummaryScreen->summary.item, gStringVar1);
-        text = gStringVar1;
+        StringAppend(gStringVar4, gStringVar1);
     }
 
-    x = GetStringCenterAlignXOffset(FONT_NORMAL, text, 72) + 6;
+    text = gStringVar4;
+    x = 0;
     PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_HELD_ITEM), text, x, 1, 0, 0);
 }
 
@@ -3428,9 +3434,13 @@ static void PrintExpPointsNextLevel(void)
     int x;
     u32 expToNextLevel;
 
+    PrintTextOnWindow(windowId, sInfoExpLabel, 0, 1, 0, 0);
+
     ConvertIntToDecimalStringN(gStringVar1, sum->exp, STR_CONV_MODE_RIGHT_ALIGN, 7);
-    x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 42) + 2;
-    PrintTextOnWindow(windowId, gStringVar1, x, 1, 0, 0);
+    x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 144);
+    PrintTextOnWindow(windowId, gStringVar1, x, 9, 0, 0);
+
+    PrintTextOnWindow(windowId, sInfoToNextLabel, 0, 17, 0, 0);
 
     if (sum->level < MAX_LEVEL)
         expToNextLevel = gExperienceTables[gSpeciesInfo[sum->species].growthRate][sum->level + 1] - sum->exp;
@@ -3438,8 +3448,8 @@ static void PrintExpPointsNextLevel(void)
         expToNextLevel = 0;
 
     ConvertIntToDecimalStringN(gStringVar1, expToNextLevel, STR_CONV_MODE_RIGHT_ALIGN, 6);
-    x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 42) + 2;
-    PrintTextOnWindow(windowId, gStringVar1, x, 17, 0, 0);
+    x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 144);
+    PrintTextOnWindow(windowId, gStringVar1, x, 25, 0, 0);
 }
 
 static void PrintDetailsPageText(void)
