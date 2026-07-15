@@ -3375,7 +3375,7 @@ static void PrintRibbonCount(void)
         text = gStringVar4;
     }
 
-    x = GetStringCenterAlignXOffset(FONT_NORMAL, text, 70) + 6;
+    x = 0;
     PrintTextOnWindow(AddWindowFromTemplateList(sPageInfoTemplate, PSS_DATA_WINDOW_INFO_RIBBON_COUNT), text, x, 1, 0, 0);
 }
 
@@ -3434,22 +3434,22 @@ static void PrintExpPointsNextLevel(void)
     int x;
     u32 expToNextLevel;
 
+    // Row 1: "EXP PTS" left, current EXP right-aligned
     PrintTextOnWindow(windowId, sInfoExpLabel, 0, 1, 0, 0);
-
     ConvertIntToDecimalStringN(gStringVar1, sum->exp, STR_CONV_MODE_RIGHT_ALIGN, 7);
     x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 144);
-    PrintTextOnWindow(windowId, gStringVar1, x, 9, 0, 0);
-
-    PrintTextOnWindow(windowId, sInfoToNextLabel, 0, 17, 0, 0);
+    PrintTextOnWindow(windowId, gStringVar1, x, 1, 0, 0);
 
     if (sum->level < MAX_LEVEL)
         expToNextLevel = gExperienceTables[gSpeciesInfo[sum->species].growthRate][sum->level + 1] - sum->exp;
     else
         expToNextLevel = 0;
 
+    // Row 2: "TO NEXT LV." left, to-next EXP right-aligned
+    PrintTextOnWindow(windowId, sInfoToNextLabel, 0, 13, 0, 0);
     ConvertIntToDecimalStringN(gStringVar1, expToNextLevel, STR_CONV_MODE_RIGHT_ALIGN, 6);
     x = GetStringRightAlignXOffset(FONT_NORMAL, gStringVar1, 144);
-    PrintTextOnWindow(windowId, gStringVar1, x, 25, 0, 0);
+    PrintTextOnWindow(windowId, gStringVar1, x, 13, 0, 0);
 }
 
 static void PrintDetailsPageText(void)
