@@ -42,9 +42,12 @@ trading, Pokémon Box, FR/LG, and Pal Park migration to Gen 4.
 - Live in-game verification (mGBA save states for specific test scenarios) is the
   user's domain — ask before trying to script a full in-game playthrough/navigation
   to reach a test location.
-- Save files for testing different points in the game live in `test_game_saves/`
-  (e.g. a save parked right outside Altering Cave). Check there for a relevant save
-  before assuming one needs to be created.
+- Save files for testing different points in the game live in `test_game_saves/`,
+  one folder per checkpoint (numbered, e.g. `0005.route_101`, `0008.may_battle_1`),
+  each holding a `pokeemerald_modern.sav` plus a symlink to the built ROM. Check
+  there for a relevant save before assuming one needs to be created. These are
+  gitignored (`.sav` via the `*.sa*` rule, the ROM symlink via `*.gba`) — add or
+  export new checkpoints freely, nothing here needs to be committed.
 
 ## Conventions
 - Small, descriptively-messaged commits — `git log --oneline` should read like a changelog.
