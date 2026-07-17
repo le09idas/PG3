@@ -4464,6 +4464,37 @@ static u8 CopyMonToPC(struct Pokemon *mon)
     return MON_CANT_GIVE;
 }
 
+// PG3 quest: stash the party slot GetLatiPartyStatus found (gSpecialVar_0x8004)
+// into the first free PC box, remembering where via VAR_QUEST_LATI_BOX_ID/POS,
+// then remove it from the active party.
+u8 StashQuestLati(void)
+{
+    u8 partySlot = gSpecialVar_0x8004;
+    struct Pokemon mon = gPlayerParty[partySlot];
+    u8 result = CopyMonToPC(&mon);
+
+    VarSet(VAR_QUEST_LATI_BOX_ID, gSpecialVar_MonBoxId);
+    VarSet(VAR_QUEST_LATI_BOX_POS, gSpecialVar_MonBoxPos);
+
+    ZeroMonData(&gPlayerParty[partySlot]);
+    CompactPartySlots();
+    CalculatePlayerPartyCount();
+    return result;
+}
+
+// PG3 quest: pull the stashed Lati back out of the box it was left in and
+// hand it back to the player (appends to party, or re-boxes if party is full).
+u8 WithdrawQuestLati(void)
+{
+    u8 boxId = VarGet(VAR_QUEST_LATI_BOX_ID);
+    u8 boxPos = VarGet(VAR_QUEST_LATI_BOX_POS);
+    struct Pokemon mon;
+
+    BoxMonAtToMon(boxId, boxPos, &mon);
+    ZeroBoxMonAt(boxId, boxPos);
+    return GiveMonToPlayer(&mon);
+}
+
 u8 CalculatePlayerPartyCount(void)
 {
     gPlayerPartyCount = 0;

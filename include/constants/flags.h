@@ -1506,10 +1506,10 @@
 
 #define FLAG_RECEIVED_POKEDEX_FROM_BIRCH            (SYSTEM_FLAGS + 0x84)
 
-#define FLAG_UNUSED_0x8E5                           (SYSTEM_FLAGS + 0x85) // Unused Flag
-#define FLAG_UNUSED_0x8E6                           (SYSTEM_FLAGS + 0x86) // Unused Flag
-#define FLAG_UNUSED_0x8E7                           (SYSTEM_FLAGS + 0x87) // Unused Flag
-#define FLAG_UNUSED_0x8E8                           (SYSTEM_FLAGS + 0x88) // Unused Flag
+#define FLAG_QUEST_LATI_STARTED                     (SYSTEM_FLAGS + 0x85) // PG3: Birch's first "this one seems special" dialogue has fired
+#define FLAG_QUEST_LATI_AWAKENED                    (SYSTEM_FLAGS + 0x86) // PG3: trained Lati has flown off
+#define FLAG_QUEST_LATI_REUNITED                    (SYSTEM_FLAGS + 0x87) // PG3: Southern Island reunion has happened
+#define FLAG_ENABLE_LATI_BIRCH_CALL                 (SYSTEM_FLAGS + 0x88) // PG3: arms the step-count PokeNav call from Birch
 #define FLAG_UNUSED_0x8E9                           (SYSTEM_FLAGS + 0x89) // Unused Flag
 #define FLAG_UNUSED_0x8EA                           (SYSTEM_FLAGS + 0x8A) // Unused Flag
 #define FLAG_UNUSED_0x8EB                           (SYSTEM_FLAGS + 0x8B) // Unused Flag

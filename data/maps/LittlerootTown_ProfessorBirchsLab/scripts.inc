@@ -463,11 +463,24 @@ LittlerootTown_ProfessorBirchsLab_EventScript_ReceivedJohtoStarter::
 LittlerootTown_ProfessorBirchsLab_EventScript_Birch::
 	lock
 	faceplayer
+	@ PG3 quest: Eon Ticket via the Lati awakening/reunion sidequest.
+	goto_if_set FLAG_ENABLE_SHIP_SOUTHERN_ISLAND, LittlerootTown_ProfessorBirchsLab_EventScript_BirchMain
+	goto_if_set FLAG_QUEST_LATI_AWAKENED, QuestLati_EventScript_GiveTicket
+	goto_if_set FLAG_QUEST_LATI_STARTED, LittlerootTown_ProfessorBirchsLab_EventScript_BirchMain
+	specialvar VAR_RESULT, GetLatiPartyStatus
+	goto_if_ne VAR_RESULT, LATI_QUEST_ABSENT, LittlerootTown_ProfessorBirchsLab_EventScript_LatiHint
+LittlerootTown_ProfessorBirchsLab_EventScript_BirchMain:
 	goto_if_eq VAR_DEX_UPGRADE_JOHTO_STARTER_STATE, 5, LittlerootTown_ProfessorBirchsLab_EventScript_CanHaveAnyOneOfRarePokemon
 	goto_if_eq VAR_DEX_UPGRADE_JOHTO_STARTER_STATE, 2, LittlerootTown_ProfessorBirchsLab_EventScript_GrassyPatchWaiting
 	goto_if_unset FLAG_HAS_MATCH_CALL, LittlerootTown_ProfessorBirchsLab_EventScript_TryRatePokedexOrRegister
 	goto_if_unset FLAG_ENABLE_PROF_BIRCH_MATCH_CALL, EventScript_RegisterProfBirch
 	goto LittlerootTown_ProfessorBirchsLab_EventScript_TryRatePokedexOrRegister
+	end
+
+LittlerootTown_ProfessorBirchsLab_EventScript_LatiHint::
+	msgbox LittlerootTown_ProfessorBirchsLab_Text_LatiHint, MSGBOX_DEFAULT
+	setflag FLAG_QUEST_LATI_STARTED
+	release
 	end
 
 LittlerootTown_ProfessorBirchsLab_EventScript_CanHaveAnyOneOfRarePokemon::
@@ -890,6 +903,14 @@ LittlerootTown_ProfessorBirchsLab_Text_CompletedDexChoosePokemon:
 	.string "in another region!\p"
 	.string "You can have any one of these\n"
 	.string "three POKéMON!$"
+
+LittlerootTown_ProfessorBirchsLab_Text_LatiHint:
+	.string "PROF. BIRCH: Whoa - is that a\n"
+	.string "legendary POKéMON with you?\p"
+	.string "It seems a little restless...\n"
+	.string "Maybe it just needs more training?\p"
+	.string "I'd bet a POKéMON like that has\n"
+	.string "hidden power waiting to come out!$"
 
 LittlerootTown_ProfessorBirchsLab_Text_CanHaveAnyOneOfRarePokemon:
 	.string "PROF. BIRCH: These are rare POKéMON\n"

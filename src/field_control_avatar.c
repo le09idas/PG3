@@ -592,6 +592,16 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
             ScriptContext_SetupScript(MossdeepCity_SpaceCenter_2F_EventScript_RivalRayquazaCall);
             return TRUE;
         }
+        if (ShouldLatiAwaken() == TRUE)
+        {
+            ScriptContext_SetupScript(QuestLati_EventScript_Awaken);
+            return TRUE;
+        }
+        if (ShouldDoLatiBirchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(QuestLati_EventScript_BirchCall);
+            return TRUE;
+        }
     }
 
     if (SafariZoneTakeStep() == TRUE)

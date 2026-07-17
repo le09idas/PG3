@@ -86,4 +86,12 @@
 #define DEOXYS_ROCK_SOLVED     2
 #define DEOXYS_ROCK_COMPLETE   3
 
+// PG3 quest: return values for GetLatiPartyStatus
+#define LATI_QUEST_ABSENT  0
+#define LATI_QUEST_PRESENT 1
+#define LATI_QUEST_READY   2
+
+// PG3 quest: virtual object id shared by the awaken/reunion cutscenes
+#define LATI_VOBJ_ID 1
+
 #endif // GUARD_CONSTANTS_FIELD_SPECIALS_H

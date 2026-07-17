@@ -43,6 +43,7 @@
 #include "task.h"
 #include "text.h"
 #include "tv.h"
+#include "constants/union_room.h"
 #include "wallclock.h"
 #include "window.h"
 #include "constants/battle_frontier.h"
@@ -348,6 +349,90 @@ u8 GetSSTidalLocation(s8 *mapGroup, s8 *mapNum, s16 *x, s16 *y)
     *mapGroup = MAP_GROUP(MAP_ROUTE132);
     *y = 20;
     return SS_TIDAL_LOCATION_CURRENTS;
+}
+
+// PG3 quest: which Latios/Latias the player could have caught via the roamer.
+static u16 GetQuestLatiSpecies(void)
+{
+    return (VarGet(VAR_ROAMER_POKEMON) == 0) ? SPECIES_LATIAS : SPECIES_LATIOS;
+}
+
+// PG3 quest: is the roamer-species Lati in the party, and is it trained enough to awaken?
+// Stores the party slot in gSpecialVar_0x8004 when found.
+u8 GetLatiPartyStatus(void)
+{
+    u16 species = GetQuestLatiSpecies();
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL) != species)
+            continue;
+
+        gSpecialVar_0x8004 = i;
+        if (GetMonData(&gPlayerParty[i], MON_DATA_LEVEL, NULL) >= GetMonData(&gPlayerParty[i], MON_DATA_MET_LEVEL, NULL) + 5)
+            return LATI_QUEST_READY;
+        return LATI_QUEST_PRESENT;
+    }
+    return LATI_QUEST_ABSENT;
+}
+
+// PG3 quest: mirrors ShouldDoWallyCall's shape but fires the instant the Lati is
+// ready while outdoors, instead of ticking a step counter.
+bool32 ShouldLatiAwaken(void)
+{
+    if (!FlagGet(FLAG_QUEST_LATI_STARTED) || FlagGet(FLAG_QUEST_LATI_AWAKENED))
+        return FALSE;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    return (GetLatiPartyStatus() == LATI_QUEST_READY);
+}
+
+bool32 ShouldDoLatiBirchCall(void)
+{
+    if (FlagGet(FLAG_ENABLE_LATI_BIRCH_CALL))
+    {
+        switch (gMapHeader.mapType)
+        {
+        case MAP_TYPE_TOWN:
+        case MAP_TYPE_CITY:
+        case MAP_TYPE_ROUTE:
+        case MAP_TYPE_OCEAN_ROUTE:
+            if (++(*GetVarPointer(VAR_QUEST_LATI_STEP_COUNTER)) < 100)
+                return FALSE;
+            break;
+        default:
+            return FALSE;
+        }
+    }
+    else
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+// PG3 quest: script-callable wrappers around the virtual-object anim system
+// (SetVirtualObjectSpriteAnim/IsVirtualObjectAnimating aren't script opcodes).
+void DoLatiSpawnOutAnim(void)
+{
+    SetVirtualObjectSpriteAnim(LATI_VOBJ_ID, UNION_ROOM_SPAWN_OUT);
+}
+
+void DoLatiSpawnInAnim(void)
+{
+    SetVirtualObjectSpriteAnim(LATI_VOBJ_ID, UNION_ROOM_SPAWN_IN);
 }
 
 bool32 ShouldDoWallyCall(void)

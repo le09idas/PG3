@@ -12,6 +12,14 @@ void UpdateTrainerFansAfterLinkBattle(void);
 void IncrementBirthIslandRockStepCount(void);
 bool8 AbnormalWeatherHasExpired(void);
 bool8 ShouldDoBrailleRegicePuzzle(void);
+
+// PG3 quest: Eon Ticket / Lati awakening sidequest
+u8 GetLatiPartyStatus(void);
+bool32 ShouldLatiAwaken(void);
+bool32 ShouldDoLatiBirchCall(void);
+void DoLatiSpawnOutAnim(void);
+void DoLatiSpawnInAnim(void);
+
 bool32 ShouldDoWallyCall(void);
 bool32 ShouldDoScottFortreeCall(void);
 bool32 ShouldDoScottBattleFrontierCall(void);
