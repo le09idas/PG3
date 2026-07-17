@@ -17,7 +17,8 @@ Roughly this order, interleaving data work and QoL:
   - [Programmatic] summary-screen info (category icons, egg group, IVs/nature,
     ability) — code/logic side done (2026-07-15 pass); see Visual below for the
     matching background redesign.
-  - [One-off] comfort features (B-to-run, faster text, reusable TMs).
+  - [One-off] comfort features (B-to-run indoors and out — done ✅; faster text,
+    reusable TMs).
 - **In-game availability / cut content:**
   - [Programmatic] repopulate Altering Cave — done (random-per-visit roll). ✅
   - [Programmatic] make the event tickets obtainable in-game (Old Sea Map → Mew,

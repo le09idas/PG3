@@ -1055,8 +1055,8 @@ void Bike_HandleBumpySlopeJump(void)
 
 bool32 IsRunningDisallowed(u8 metatile)
 {
-    if (!gMapHeader.allowRunning || IsRunningDisallowedByMetatile(metatile) == TRUE)
-        return TRUE;
-    else
-        return FALSE;
+    // PG3: running (with Running Shoes) is allowed on every map, indoors and out.
+    // Per-map allowRunning restriction removed; metatile-level restrictions
+    // (long grass, hot springs, Pacifidlog logs, etc.) still apply.
+    return IsRunningDisallowedByMetatile(metatile);
 }

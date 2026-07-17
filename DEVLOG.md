@@ -6,6 +6,29 @@ read it first.
 
 ---
 
+## 2026-07-16 — B-to-run allowed everywhere (indoors + out)
+
+- Still gated behind `FLAG_SYS_B_DASH` (Running Shoes) and the B button — untouched.
+- Removed the per-map `allowRunning` restriction that blocked running in ~290 of
+  518 maps (mostly interiors). `IsRunningDisallowed()` (`src/bike.c:1056`) now
+  only checks `IsRunningDisallowedByMetatile()` — metatile-level restrictions
+  (long grass, hot springs, Pacifidlog logs, `MB_NO_RUNNING` tiles, Fortree
+  bridge elevation) are untouched, so those terrain-specific rules still apply.
+  Left the dead legacy `RS_IsRunningDisallowed()` (mapType-based, unused, R/S
+  leftover) alone — not on any call path.
+- Builds clean with `make modern`. Verified live in mGBA (2026-07-16): running
+  works inside buildings; Pacifidlog Town log-crossing tiles still block
+  running as expected (metatile-level restriction intact). ✅
+
+**Current phase:** Phase 1 in progress — run-anywhere QoL shipped and verified.
+
+**Next up:**
+- Continue Phase 1 comfort features: faster text, reusable TMs.
+
+**Known issues / open decisions:** none open right now.
+
+---
+
 ## 2026-07-15 — Summary screen full QoL pass (INFO / SKILLS / DATA pages)
 
 All changes are in `src/pokemon_summary_screen.c` and the two background binaries in `graphics/summary_screen/`.
