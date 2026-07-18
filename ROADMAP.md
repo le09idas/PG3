@@ -1,7 +1,10 @@
 # PG3 Roadmap
 
 **Base:** vanilla pret/pokeemerald · **Scope:** Gen 3 only, full real-cart interop preserved.
-**North star:** a game spanning three Gen 3 regions. **Near-term:** a complete, replayable Hoenn first.
+**North star:** a game spanning three Gen 3 regions — Hoenn, then Kanto (via
+portable `pokefirered` assets, see Phase 5), third region TBD pending art
+feasibility (no other region has portable Gen-3-native map/trainer assets).
+**Near-term:** a complete, replayable Hoenn first.
 
 Each item below is tagged by change type: **[One-off]** single value/file edits,
 **[Programmatic]** rematches/events/special encounters/new logic,
@@ -68,12 +71,37 @@ gated on **progression flags** (got Fly, beat E4, etc.) instead of vanilla rando
 Prototype ONE gym leader end-to-end before scaling out. Heaviest C work; trainer
 rosters are interop-exempt, so teams can be anything.
 
+**Trainer-ID budget note (2026-07-19):** only 9 free `TRAINER_*` IDs exist
+project-wide out of 864 max (see `include/constants/opponents.h`). The 64
+non-gym-leader Match Call trainers currently burn 320 IDs on 5 rematch tiers
+each (full roster reference: `MATCH_CALL_ROSTERS.md`); trimming them to 2
+tiers (1 regular + 1 rematch) frees ~192 IDs. When this rework happens,
+**reserve ~100 of those freed IDs for Phase 5 (Kanto import)** rather than
+spending them all on Hoenn's own gym leader tier 6/7 — Hoenn's expansion only
+needs ~16-24 IDs, leaving ample headroom for both. Decide the actual 2-tier
+roster per trainer (keep vanilla tier 5, or something else) before implementing.
+
 ## Phase 3 — Plot hooks — [Programmatic]
 Scripted scenarios that hand the player the tickets / unlock the cut content
 (optionally gated behind battles). Mostly Poryscript. Depends on Phase 1 content.
 
 ## Phase 4 — Pokédex research depth (capstone) — [Programmatic]
 Modern-style catch/battle-X tasks with rewards. Custom system.
+
+## Phase 5 — Kanto import (future, post-Hoenn) — [Programmatic] + [Visual/Map]
+Second of the "three Gen 3 regions." Feasible specifically because FireRed/
+LeafGreen is a sibling Gen-3 decomp (`pokefirered`) with genuinely portable
+official assets — Kanto's map layouts, tilesets, gym designs, trainer
+sprites, and rosters already exist as Gen-3-native content, unlike any
+later-gen region (no official Gen-3-style art exists for Johto or beyond;
+those would need commissioned custom art from scratch, a separate effort).
+Scope: import Kanto's 8 gym leaders + Elite Four + Champion as battle-able
+figures (trainer data/sprites ported from `pokefirered`); explorable
+scaled-down map content is a stretch goal contingent on how cleanly Kanto's
+maps port over. Draws on the ~100 trainer IDs reserved from the Phase 2
+rework (see above). Not started — needs its own dedicated planning session.
+Any region beyond Kanto is an open question pending art feasibility, not
+committed scope.
 
 ## Optional / parked
 - **Retranslation pass** — high effort, uncertain payoff; revisit only with a

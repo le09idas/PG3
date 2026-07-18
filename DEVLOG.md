@@ -151,6 +151,67 @@ editing):
   visits — consistent with how vanilla's own weather systems on these maps
   already behave, not considered a bug.
 
+### Phase 2 (Match Call) planning + Kanto import scoping
+
+Started scoping Phase 2 (Match Call/rematch overhaul). Key research finding:
+vanilla already has fully deterministic, escalating 5-tier rosters baked in
+for gym leaders (e.g. `TRAINER_ROXANNE_1`-`_5`, level 12→32→37→42→47, real
+species/moveset/item progression) — the only actual randomness in vanilla is
+*when* a trainer becomes eligible for their next tier (`Random() % 100 <= 30`
+in `src/gym_leader_rematch.c`/`src/battle_setup.c`), not which roster they
+use. So "gate on progression flags instead of randomness" is a narrower,
+more surgical change than initially scoped — replacing the RNG eligibility
+roll with flag checks, using the existing `FLAG_DEFEATED_WALLY_VICTORY_ROAD`-
+gated Wally rematch as a real precedent for "flag-gated, not random."
+
+User designed a 7-tier wave-gating scheme (tier2=Flannery beaten unlocks
+Roxanne/Brawly/Wattson, tier3=Juan beaten or Victory Road cleared, tier4=E4
+beaten once, tier5=half Battle Frontier Symbols, tier6=all Symbols, tier7=
+"last batch," more TBD) — tiers 1-5 map cleanly onto vanilla's existing 5
+baked-in trainer tiers per gym leader (zero new trainer data needed); tiers
+6-7 would need brand-new `TRAINER_*` IDs, which surfaced the real constraint:
+**only 9 free trainer IDs exist out of 864 max** (`include/constants/opponents.h`).
+
+Investigated reclaiming budget from the 64 non-gym-leader Match Call
+trainers, who currently burn 320 IDs on 5 rematch tiers each (route
+trainers/rivals — fisherman, triathletes, hikers, etc., full breakdown now
+in `MATCH_CALL_ROSTERS.md`, auto-generated for the user to review and decide
+keep/cut/scale per trainer). Trimming to 2 tiers each (1 regular + 1
+rematch) frees exactly 192 IDs (precisely computed, not estimated).
+
+This connected to a bigger conversation: user wants to eventually import
+Kanto's gym leaders/Elite Four as battle-able figures (a "send-off" for Gen 3
+spanning regions), tied to the project's existing north-star ("three Gen 3
+regions" was already in ROADMAP.md before today). Checked real space
+constraints to ground the discussion: ROM is a non-issue (~19.3 MB free of
+32MB), but EWRAM (~12.1 KB free of 256KB, 95.3% used) and IWRAM (~2.3 KB free
+of 32KB, 92.8% used) are both extremely tight — worth remembering for any
+future feature needing significant new runtime RAM, though trainer/roster
+data itself is ROM-resident and doesn't touch this budget. Kanto specifically
+is feasible because FireRed/LeafGreen is a sibling Gen-3 pret decomp
+(`pokefirered`) with genuinely portable official Gen-3-native maps, tilesets,
+and trainer sprites — no other region (Johto included) has any Gen-3-style
+assets to port, so those would need commissioned custom art from scratch.
+
+Decision, now recorded in ROADMAP.md: reserve ~100 of the ~192 freed trainer
+IDs for a future Phase 5 (Kanto import) rather than spending them all on
+Hoenn's own gym leader tier 6/7 (which only needs ~16-24). North-star line
+updated to name Kanto as the concrete second region, third region left
+explicitly open pending art feasibility. Match Call implementation itself
+remains tabled — no code changes this session, planning/documentation only.
+
+**Next up (Phase 2, whenever resumed):**
+- User reviews `MATCH_CALL_ROSTERS.md`, decides which of the 64 route
+  trainers keep their full 5 tiers vs. get cut to 2 vs. something else
+  (hybrid approach floated: retain more of the original game where it adds
+  value, simplify where it doesn't).
+- Finalize the exact tier-gating flags for gym leader tiers 2-5 (proposed:
+  badge 4/Flannery, badge 8 or Victory Road, E4 cleared, half Frontier
+  Symbols — user was mid-revision with a richer 7-tier scheme when this got
+  tabled to discuss Kanto).
+- Prototype the flag-gating change on one gym leader before scaling out, per
+  the original Phase 2 framing.
+
 ---
 
 ## 2026-07-17 — Eon Ticket via Lati awakening/reunion sidequest
