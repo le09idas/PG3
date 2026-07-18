@@ -18,7 +18,18 @@ Route119_OnTransition:
 	call Common_EventScript_SetupRivalOnBikeGfxId
 	call_if_eq VAR_WEATHER_INSTITUTE_STATE, 1, Route119_EventScript_MoveInstituteWorkersDownstairs
 	special SetRoute119Weather
+	call Route119_EventScript_CheckWeatherAnomaly
 	end
+
+@ PG3 quest: a sandstorm on this lush route is the "wrong" weather here.
+Route119_EventScript_CheckWeatherAnomaly::
+	setflag FLAG_HIDE_QUEST_WEATHER_ROUTE119_MARKERS
+	goto_if_unset FLAG_QUEST_WEATHER_STARTED, Route119_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_ROUTE119_DONE, Route119_EventScript_CheckWeatherAnomalyReturn
+	clearflag FLAG_HIDE_QUEST_WEATHER_ROUTE119_MARKERS
+	setweather WEATHER_SANDSTORM
+Route119_EventScript_CheckWeatherAnomalyReturn::
+	return
 
 Route119_EventScript_MoveInstituteWorkersDownstairs::
 	setflag FLAG_HIDE_WEATHER_INSTITUTE_2F_WORKERS
@@ -473,6 +484,40 @@ Route119_EventScript_ScottWonAtFortreeGymCall::
 	clearflag FLAG_SCOTT_CALL_FORTREE_GYM
 	addvar VAR_SCOTT_STATE, 1
 	releaseall
+	end
+
+@ PG3 quest: touch A -> B -> C in order (with Rayquaza in party) to calm the anomaly.
+Route119_EventScript_WeatherMarkerA::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 0, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 1
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+Route119_EventScript_WeatherMarkerB::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 1, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 2
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+Route119_EventScript_WeatherMarkerC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 0
+	setflag FLAG_QUEST_WEATHER_ROUTE119_DONE
+	goto QuestWeather_EventScript_SiteResolved
 	end
 
 Route119_Text_MayIntro:

@@ -28,12 +28,24 @@ Roughly this order, interleaving data work and QoL:
       and flies off, Birch calls, hands over the ticket; reunite with it on
       Southern Island before the vanilla opposite-species encounter. Verified
       end-to-end in mGBA.
-    - Old Sea Map, Aurora, Mystic tickets still need their own unlock hooks.
+    - Aurora Ticket: done via the Rayquaza weather-anomaly sidequest
+      (2026-07-18) ✅ — catch/defeat Rayquaza, get a Weather Institute call
+      about 3 anomalies (Route 111, Route 119, Mossdeep City), calm each with
+      a touch-3-markers-in-order puzzle (Rayquaza in party, no training
+      needed), Weather Institute calls again once all 3 are done, Steven at
+      the Space Center relays an astronaut's meteor sighting and hands over
+      the ticket. Builds clean; pending mGBA verification (and a visual
+      passability check on the new marker/NPC placements — placed from map
+      data, not Porymap).
+    - Old Sea Map, Mystic tickets still tabled, no unlock hooks yet.
   - [Map] restore the islands (Southern Island, Navel Rock, Birth Island,
     Faraway Island) and their encounters — existing map data, currently
-    inaccessible without the event scripts above. Southern Island now reachable
-    via the Eon Ticket quest above; Navel Rock/Birth Island/Faraway Island
-    still pending their own tickets.
+    inaccessible without the event scripts above. Southern Island and Birth
+    Island now reachable via the Eon/Aurora Ticket quests above; Navel
+    Rock/Faraway Island still pending their own tickets.
+  - Jirachi: no existing infrastructure at all in vanilla (no flags, map
+    presence, encounter script, or overworld graphic) — tabled as a separate,
+    later from-scratch effort per user's call (2026-07-18).
 - **Trade-evolution alternatives:**
   - [Programmatic] in-game methods (e.g. Machoke + a special item) so the dex is
     completable solo. Interop-safe — evolution method is local logic.
@@ -42,9 +54,13 @@ Roughly this order, interleaving data work and QoL:
     Zigzagoon + rare Linoone), surprise high-level encounters, soft level-gating;
     shiny-rate changes / flag-linked shiny boosts. Keep player-obtainable Pokémon
     legal.
-- **Visual (pending, Windows/Tilemap Studio):**
+- **Visual (pending, Windows/Porymap + Tilemap Studio):**
   - [Visual] summary screen INFO/SKILLS background redesign to match the new
-    3-section layouts (see DEVLOG 2026-07-15).
+    3-section layouts (see DEVLOG 2026-07-15). Tool: **Tilemap Studio**.
+  - [Visual] Aurora Ticket weather-quest object placement — verify/reposition
+    9 new marker objects (Route111/Route119/MossdeepCity) and Steven's new
+    Space Center 2F spot; all were placed from map.json coordinates blind,
+    not visually confirmed walkable (see DEVLOG 2026-07-18). Tool: **Porymap**.
 
 ## Phase 2 — Match Call / rematch overhaul (the centerpiece) — [Programmatic]
 Distinct, escalating rosters for trainers, rivals, gym leaders, and the Elite Four,

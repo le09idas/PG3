@@ -602,6 +602,16 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
             ScriptContext_SetupScript(QuestLati_EventScript_BirchCall);
             return TRUE;
         }
+        if (ShouldDoWeatherInstituteCall() == TRUE)
+        {
+            ScriptContext_SetupScript(QuestWeather_EventScript_InstituteCall);
+            return TRUE;
+        }
+        if (ShouldDoStevenTicketCall() == TRUE)
+        {
+            ScriptContext_SetupScript(QuestWeather_EventScript_StevenCall);
+            return TRUE;
+        }
     }
 
     if (SafariZoneTakeStep() == TRUE)

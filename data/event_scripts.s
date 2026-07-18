@@ -748,6 +748,7 @@ Common_EventScript_StopBrineysBoatMusic::
 
 	.include "data/scripts/prof_birch.inc"
 	.include "data/scripts/quest_lati.inc"
+	.include "data/scripts/quest_weather.inc"
 
 @ Below could be split as ferry.inc aside from the Rusturf tunnel script
 Common_EventScript_FerryDepart::

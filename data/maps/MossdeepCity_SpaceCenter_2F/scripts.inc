@@ -6,7 +6,21 @@ MossdeepCity_SpaceCenter_2F_MapScripts::
 MossdeepCity_SpaceCenter_2F_OnTransition:
 	call_if_eq VAR_MOSSDEEP_CITY_STATE, 2, MossdeepCity_SpaceCenter_2F_EventScript_MoveCivilians
 	call_if_eq VAR_MOSSDEEP_SPACE_CENTER_STATE, 2, MossdeepCity_SpaceCenter_2F_EventScript_MoveDefeatedGrunts
+	call MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherSteven
 	end
+
+@ PG3 quest: Steven's 2nd appearance here, once the weather anomalies are
+@ resolved. VAR_STEVENS_HOUSE_STATE >= 2 additionally guards against ever
+@ showing this alongside his original Magma-confrontation appearance on this
+@ same map (that flag is never explicitly re-hidden after the story battle).
+MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherSteven::
+	setflag FLAG_HIDE_QUEST_WEATHER_SPACE_CENTER_STEVEN
+	goto_if_unset FLAG_QUEST_WEATHER_ALL_DONE, MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherStevenReturn
+	goto_if_set FLAG_ENABLE_SHIP_BIRTH_ISLAND, MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherStevenReturn
+	goto_if_lt VAR_STEVENS_HOUSE_STATE, 2, MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherStevenReturn
+	clearflag FLAG_HIDE_QUEST_WEATHER_SPACE_CENTER_STEVEN
+MossdeepCity_SpaceCenter_2F_EventScript_CheckShowQuestWeatherStevenReturn::
+	return
 
 MossdeepCity_SpaceCenter_2F_EventScript_MoveCivilians::
 	clearflag FLAG_INTERACTED_WITH_STEVEN_SPACE_CENTER
@@ -174,6 +188,13 @@ MossdeepCity_SpaceCenter_2F_EventScript_Maxie::
 	lockall
 	msgbox MossdeepCity_SpaceCenter_2F_Text_MaxieDontInterfere, MSGBOX_DEFAULT
 	releaseall
+	end
+
+@ PG3 quest: Steven's 2nd appearance here, once the weather anomalies are resolved.
+MossdeepCity_SpaceCenter_2F_EventScript_QuestWeatherSteven::
+	lock
+	faceplayer
+	goto QuestWeather_EventScript_GiveTicket
 	end
 
 MossdeepCity_SpaceCenter_2F_EventScript_Steven::

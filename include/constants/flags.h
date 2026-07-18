@@ -1510,16 +1510,16 @@
 #define FLAG_QUEST_LATI_AWAKENED                    (SYSTEM_FLAGS + 0x86) // PG3: trained Lati has flown off
 #define FLAG_QUEST_LATI_REUNITED                    (SYSTEM_FLAGS + 0x87) // PG3: Southern Island reunion has happened
 #define FLAG_ENABLE_LATI_BIRCH_CALL                 (SYSTEM_FLAGS + 0x88) // PG3: arms the step-count PokeNav call from Birch
-#define FLAG_UNUSED_0x8E9                           (SYSTEM_FLAGS + 0x89) // Unused Flag
-#define FLAG_UNUSED_0x8EA                           (SYSTEM_FLAGS + 0x8A) // Unused Flag
-#define FLAG_UNUSED_0x8EB                           (SYSTEM_FLAGS + 0x8B) // Unused Flag
-#define FLAG_UNUSED_0x8EC                           (SYSTEM_FLAGS + 0x8C) // Unused Flag
-#define FLAG_UNUSED_0x8ED                           (SYSTEM_FLAGS + 0x8D) // Unused Flag
-#define FLAG_UNUSED_0x8EE                           (SYSTEM_FLAGS + 0x8E) // Unused Flag
-#define FLAG_UNUSED_0x8EF                           (SYSTEM_FLAGS + 0x8F) // Unused Flag
-#define FLAG_UNUSED_0x8F0                           (SYSTEM_FLAGS + 0x90) // Unused Flag
-#define FLAG_UNUSED_0x8F1                           (SYSTEM_FLAGS + 0x91) // Unused Flag
-#define FLAG_UNUSED_0x8F2                           (SYSTEM_FLAGS + 0x92) // Unused Flag
+#define FLAG_QUEST_WEATHER_STARTED                  (SYSTEM_FLAGS + 0x89) // PG3: first Weather Institute call has fired
+#define FLAG_QUEST_WEATHER_ROUTE111_DONE            (SYSTEM_FLAGS + 0x8A) // PG3: Route 111 anomaly resolved
+#define FLAG_QUEST_WEATHER_ROUTE119_DONE            (SYSTEM_FLAGS + 0x8B) // PG3: Route 119 anomaly resolved
+#define FLAG_QUEST_WEATHER_MOSSDEEP_DONE            (SYSTEM_FLAGS + 0x8C) // PG3: Mossdeep City anomaly resolved
+#define FLAG_QUEST_WEATHER_ALL_DONE                 (SYSTEM_FLAGS + 0x8D) // PG3: all 3 anomalies resolved, arms Steven's call
+#define FLAG_ENABLE_STEVEN_TICKET_CALL              (SYSTEM_FLAGS + 0x8E) // PG3: arms the step-count PokeNav call from Steven
+#define FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS    (SYSTEM_FLAGS + 0x8F) // PG3: visibility toggle, all 3 markers together
+#define FLAG_HIDE_QUEST_WEATHER_ROUTE119_MARKERS    (SYSTEM_FLAGS + 0x90) // PG3: visibility toggle, all 3 markers together
+#define FLAG_HIDE_QUEST_WEATHER_MOSSDEEP_MARKERS    (SYSTEM_FLAGS + 0x91) // PG3: visibility toggle, all 3 markers together
+#define FLAG_HIDE_QUEST_WEATHER_SPACE_CENTER_STEVEN (SYSTEM_FLAGS + 0x92) // PG3: Steven's 2nd appearance, visible once weather quest done
 #define FLAG_UNUSED_0x8F3                           (SYSTEM_FLAGS + 0x93) // Unused Flag
 #define FLAG_UNUSED_0x8F4                           (SYSTEM_FLAGS + 0x94) // Unused Flag
 #define FLAG_UNUSED_0x8F5                           (SYSTEM_FLAGS + 0x95) // Unused Flag

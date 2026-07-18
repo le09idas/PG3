@@ -8,7 +8,18 @@ MossdeepCity_OnTransition:
 	clearflag FLAG_MOSSDEEP_GYM_SWITCH_3
 	clearflag FLAG_MOSSDEEP_GYM_SWITCH_4
 	call_if_set FLAG_SYS_WEATHER_CTRL, Common_EventScript_SetAbnormalWeather
+	call MossdeepCity_EventScript_CheckWeatherAnomaly
 	end
+
+@ PG3 quest: a storm over this sunny coastal city is the "wrong" weather here.
+MossdeepCity_EventScript_CheckWeatherAnomaly::
+	setflag FLAG_HIDE_QUEST_WEATHER_MOSSDEEP_MARKERS
+	goto_if_unset FLAG_QUEST_WEATHER_STARTED, MossdeepCity_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_MOSSDEEP_DONE, MossdeepCity_EventScript_CheckWeatherAnomalyReturn
+	clearflag FLAG_HIDE_QUEST_WEATHER_MOSSDEEP_MARKERS
+	setweather WEATHER_RAIN_THUNDERSTORM
+MossdeepCity_EventScript_CheckWeatherAnomalyReturn::
+	return
 
 MossdeepCity_EventScript_PokefanF::
 	lock
@@ -302,6 +313,40 @@ MossdeepCity_Movement_ScottExitEast:
 	walk_left
 	walk_left
 	step_end
+
+@ PG3 quest: touch A -> B -> C in order (with Rayquaza in party) to calm the anomaly.
+MossdeepCity_EventScript_WeatherMarkerA::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 0, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 1
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+MossdeepCity_EventScript_WeatherMarkerB::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 1, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 2
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+MossdeepCity_EventScript_WeatherMarkerC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 0
+	setflag FLAG_QUEST_WEATHER_MOSSDEEP_DONE
+	goto QuestWeather_EventScript_SiteResolved
+	end
 
 MossdeepCity_Text_WantKingsRockStevenGaveMe:
 	.string "I got this from STEVEN, but I don't\n"

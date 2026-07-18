@@ -46,7 +46,18 @@ Route111_OnTransition:
 	call Route111_EventScript_CheckSetSandstorm
 	call GabbyAndTy_EventScript_UpdateLocation
 	goto_if_not_defeated TRAINER_VICKY, Route111_EventScript_SetWinstratesNotDefeated
+	call Route111_EventScript_CheckWeatherAnomaly
 	end
+
+@ PG3 quest: rain in the desert is the "wrong" weather here, which is the point.
+Route111_EventScript_CheckWeatherAnomaly::
+	setflag FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS
+	goto_if_unset FLAG_QUEST_WEATHER_STARTED, Route111_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_ROUTE111_DONE, Route111_EventScript_CheckWeatherAnomalyReturn
+	clearflag FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS
+	setweather WEATHER_RAIN_THUNDERSTORM
+Route111_EventScript_CheckWeatherAnomalyReturn::
+	return
 
 Route111_EventScript_SetFallingPlayerGfx::
 	checkplayergender
@@ -422,6 +433,40 @@ Route111_EventScript_RockSmashTipFatMan::
 	applymovement LOCALID_ROUTE111_ROCK_SMASH_MAN, Common_Movement_FaceOriginalDirection
 	waitmovement 0
 	releaseall
+	end
+
+@ PG3 quest: touch A -> B -> C in order (with Rayquaza in party) to calm the anomaly.
+Route111_EventScript_WeatherMarkerA::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 0, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 1
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+Route111_EventScript_WeatherMarkerB::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 1, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 2
+	msgbox QuestWeather_Text_MarkerResponds, MSGBOX_DEFAULT
+	release
+	end
+
+Route111_EventScript_WeatherMarkerC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, IsRayquazaInParty
+	goto_if_eq VAR_RESULT, FALSE, QuestWeather_EventScript_NoRayquaza
+	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
+	setvar VAR_TEMP_8, 0
+	setflag FLAG_QUEST_WEATHER_ROUTE111_DONE
+	goto QuestWeather_EventScript_SiteResolved
 	end
 
 Route111_EventScript_Drew::

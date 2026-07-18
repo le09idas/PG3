@@ -435,6 +435,71 @@ void DoLatiSpawnInAnim(void)
     SetVirtualObjectSpriteAnim(LATI_VOBJ_ID, UNION_ROOM_SPAWN_IN);
 }
 
+// PG3 quest: is Rayquaza anywhere in the party? No level/met requirement —
+// it doesn't need training, just needs to be carried.
+bool8 IsRayquazaInParty(void)
+{
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL) == SPECIES_RAYQUAZA)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+// PG3 quest: this is the quest's entry point, so unlike ShouldDoLatiBirchCall
+// there's no separate "enable" flag to arm — the precondition is the standing
+// story state (Rayquaza defeated/caught) directly, gated so it only ever fires once.
+bool32 ShouldDoWeatherInstituteCall(void)
+{
+    if (FlagGet(FLAG_QUEST_WEATHER_STARTED) || !FlagGet(FLAG_DEFEATED_RAYQUAZA) || !IsRayquazaInParty())
+        return FALSE;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        if (++(*GetVarPointer(VAR_QUEST_WEATHER_CALL_STEP_COUNTER)) < 100)
+            return FALSE;
+        break;
+    default:
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+// PG3 quest: mirrors ShouldDoLatiBirchCall's shape — armed by
+// FLAG_ENABLE_STEVEN_TICKET_CALL once all 3 weather sites are resolved.
+bool32 ShouldDoStevenTicketCall(void)
+{
+    if (FlagGet(FLAG_ENABLE_STEVEN_TICKET_CALL))
+    {
+        switch (gMapHeader.mapType)
+        {
+        case MAP_TYPE_TOWN:
+        case MAP_TYPE_CITY:
+        case MAP_TYPE_ROUTE:
+        case MAP_TYPE_OCEAN_ROUTE:
+            if (++(*GetVarPointer(VAR_QUEST_STEVEN_CALL_STEP_COUNTER)) < 100)
+                return FALSE;
+            break;
+        default:
+            return FALSE;
+        }
+    }
+    else
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 bool32 ShouldDoWallyCall(void)
 {
     if (FlagGet(FLAG_ENABLE_FIRST_WALLY_POKENAV_CALL))

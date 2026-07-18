@@ -6,6 +6,153 @@ read it first.
 
 ---
 
+## 2026-07-18 — Aurora Ticket via Rayquaza weather-anomaly sidequest
+
+Same shape as the Eon Ticket fix: the Aurora Ticket (→ Birth Island →
+Deoxys) was a Mystery-Gift-only dead end (`data/scripts/gift_aurora_ticket.inc`,
+`MysteryGiftScript_AuroraTicket`, only reachable via `trywondercardscript`).
+Birth Island's rock-triangle puzzle + Deoxys battle
+(`data/maps/BirthIsland_Exterior/scripts.inc`) and the harbor plumbing were
+already fully intact — only needed an in-game path to the ticket.
+
+**Quest, per user's design:** catch/defeat Rayquaza (`FLAG_DEFEATED_RAYQUAZA`,
+vanilla, covers both outcomes — matches how Sky Pillar already treats it as
+one-shot) → walking around with Rayquaza in the party triggers a PokéNav call
+from the Weather Institute (Route 119) reporting 3 simultaneous anomalies →
+Route 111 (desert, made abnormal with rain/thunderstorm instead of its native
+sandstorm), Route 119 (made abnormal with a sandstorm on a route that's
+normally clear), Mossdeep City (storm over a normally sunny coastal city) →
+each site has 3 marker objects that must be touched in the correct order
+with Rayquaza in the party (wrong order silently resets, no penalty — modeled
+on Mauville Gym's switch-press idiom + Trick House's scratch-var-reset
+convention, using one `VAR_TEMP_8` per map as an auto-resetting progress
+counter, not a persistent var) → solving all 3 arms a second Weather
+Institute call → Steven at the Mossdeep Space Center relays a secondhand
+report from an astronaut friend about a meteor near a southern island, hands
+over the Aurora Ticket → `setflag FLAG_ENABLE_SHIP_BIRTH_ISLAND` unlocks the
+harbor + Birth Island's untouched existing content, same as Southern Island
+needed zero changes for Eon Ticket.
+
+**New constants** — 8 flags in the same reserved `SYSTEM_FLAGS` range the
+Lati quest started (`FLAG_QUEST_WEATHER_STARTED/ROUTE111_DONE/ROUTE119_DONE/
+MOSSDEEP_DONE/ALL_DONE`, `FLAG_ENABLE_STEVEN_TICKET_CALL`, 3 marker-visibility
+flags, Steven's 2nd-appearance visibility flag); 2 vars in the same reserved
+tail range (`VAR_QUEST_WEATHER_CALL_STEP_COUNTER`/`VAR_QUEST_STEVEN_CALL_STEP_COUNTER`).
+Puzzle progress deliberately uses `VAR_TEMP_8` (auto-resets per map load)
+instead of a new persistent var, per the researched Trick House precedent.
+
+**New C (`src/field_specials.c`)** — `IsRayquazaInParty()` (trivial species
+check, no level/met requirement — "doesn't need training, just needs to be
+carried," unlike the Lati quest's level-gated check), `ShouldDoWeatherInstituteCall()`
+/ `ShouldDoStevenTicketCall()` (mirror `ShouldDoLatiBirchCall`, hooked into
+`TryStartStepCountScript`). The first call's gate has no separate "enable"
+flag to arm — unlike Birch's call, this one *is* the quest's entry point, so
+it's gated directly on the standing story flag (`FLAG_DEFEATED_RAYQUAZA`)
+plus its own "already started" guard.
+
+**Scripts** — new shared file `data/scripts/quest_weather.inc` (institute
+call, Steven call, shared "site resolved" payoff that checks whether all 3
+are done and arms Steven's call, ticket handoff, shared marker-touch
+reset/no-Rayquaza handlers reused by all 3 sites to avoid tripling
+boilerplate). Each site (`Route111`, `Route119`, `MossdeepCity`) got: a
+weather-override check appended to its existing `OnTransition` (layered
+*after* each map's existing weather logic — e.g. Route 111 already has its
+own desert sandstorm system, Route 119 has `special SetRoute119Weather`,
+Mossdeep has the vanilla storm-trio effect — so ours takes precedence only
+while the anomaly flag conditions hold, otherwise falls through to whatever
+was already there), 3 new marker objects reusing `OBJ_EVENT_GFX_BREAKABLE_ROCK`
+(no new art), and 3 short per-marker touch scripts.
+
+Steven's ticket hand-off got its own new object at Space Center 2F rather
+than reusing his existing one there — that one's already committed to the
+Team Magma confrontation scene (`LOCALID_SPACE_CENTER_2F_STEVEN`,
+`FLAG_HIDE_MOSSDEEP_CITY_SPACE_CENTER_2F_STEVEN`, a real vanilla flag whose
+name I collided with on the first attempt and had to rename mine away from).
+The new object's visibility additionally requires `VAR_STEVENS_HOUSE_STATE
+>= 2` as a defensive guard, since the original Steven flag is never
+re-hidden after the Magma battle — without that guard there's a narrow
+window where both appearances could theoretically be visible at once.
+
+**Known limitation, flagged rather than guessed past:** all new object
+placements (9 markers + Steven) were positioned from `map.json` coordinate
+data and existing coord_event locations, not Porymap — there's no way to
+verify from data alone whether a given tile is actually walkable/unobstructed.
+Route 111's markers were placed near known-walkable sandstorm coord_event
+triggers for that reason (highest confidence); Route 119, Mossdeep, and
+Steven's Space Center spot are reasoned best-guesses from open coordinate
+gaps between existing NPCs. **This needs a visual pass in mGBA (or Porymap on
+the Windows side) before considering placement final** — nudging a marker a
+tile or two if it lands on a rock/wall/tree is a quick fix but needs eyes on
+it.
+
+Builds clean with `make modern`. Not yet verified live in mGBA.
+
+Checked whether the user had Porymap available to do the placement pass
+themselves right away — turns out not on hand currently. Documenting the
+pending Windows-side visual work below so it's not lost; this is now the
+canonical list of everything waiting on Porymap/Tilemap Studio across the
+project, not just this session's item.
+
+### Pending Windows-side visual work
+
+**Porymap** (map/object placement — get it at
+github.com/huderlem/porymap, the standard pret-decomp map editor; it's
+listed as already installed on the Windows machine per the Phase 0 setup):
+- Aurora Ticket weather-quest object placement (2026-07-18, this entry) — 9
+  new marker objects + Steven's new spot were placed from `map.json`
+  coordinates blind (no way to verify walkability from raw data). Open each
+  map in Porymap's Events tab, find the objects by name, and drag onto
+  confirmed-open ground:
+  - `Route111`: `LOCALID_ROUTE111_WEATHER_MARKER_A/B/C` — keep in the desert
+    (sandy) portion of the route, close together.
+  - `Route119`: `LOCALID_ROUTE119_WEATHER_MARKER_A/B/C` — keep near the
+    Weather Institute entrance.
+  - `MossdeepCity`: `LOCALID_MOSSDEEP_WEATHER_MARKER_A/B/C` — southwest
+    corner, away from the Magma/Maxie scene and other NPCs.
+  - `MossdeepCity_SpaceCenter_2F`: `LOCALID_SPACE_CENTER_2F_QUEST_WEATHER_STEVEN`
+    — avoid overlapping the Rich Boy/Gentleman/Scientist/original-Steven spots.
+  - Save in Porymap (writes straight to `map.json`), then rebuild with
+    `make modern` to confirm nothing broke.
+
+**Tilemap Studio** (background tilemap/pixel art — get it at
+github.com/Rangi42/tilemap-studio, used for GBA background tile/palette
+editing):
+- Summary screen INFO/SKILLS page background redesign (2026-07-15) — the
+  code/logic side of the summary screen QoL pass is done and confirmed
+  working in mGBA with placeholder layouts, but `page_info.bin` and
+  `page_skills.bin` still need real background art to match the new
+  3-section layouts. Specifically: the SKILLS page is missing a "STATS"
+  section header (blocked by the panel header at rows 0-2 — needs to be
+  baked into the tilemap background itself, not a window). After that
+  redesign, also re-verify the IV/EV column pixel positions (x=94/136,
+  chosen by calculation, never visually confirmed against real art).
+
+**Current phase:** Phase 1 in progress — Aurora Ticket sidequest shipped, pending mGBA verification (including marker/NPC placement check).
+
+**Next up:**
+- Verify the full chain in mGBA: Rayquaza → institute call → all 3 sites →
+  second call → Steven → ticket → Birth Island's existing puzzle/Deoxys
+  encounter (should be completely unaffected).
+- Do the Porymap placement pass above (Windows machine), sync back, rebuild.
+- Workshop all the new dialogue (institute call, marker responses, Steven's
+  call and ticket handoff) — first draft, same as every other quest so far.
+- Jirachi: separate from-scratch effort, tabled per user's call — needs its
+  own design conversation (trigger, location, mechanic) before implementation.
+- Old Sea Map, Mystic Ticket still tabled, no unlock hooks yet.
+- Tilemap Studio pass on the summary screen (see above) — waiting on
+  Windows-side time, not blocked on anything else.
+
+**Known issues / open decisions:**
+- Marker/Steven placement needs visual verification (see above) — the one
+  real risk item in this session's work.
+- Route 111/119/Mossdeep's weather-anomaly override always re-applies on
+  every map re-entry while active (matching the existing abnormal_weather.inc
+  precedent's approach) rather than persisting a single weather state across
+  visits — consistent with how vanilla's own weather systems on these maps
+  already behave, not considered a bug.
+
+---
+
 ## 2026-07-17 — Eon Ticket via Lati awakening/reunion sidequest
 
 The Eon Ticket (Southern Island → Latios/Latias) was unreachable in real

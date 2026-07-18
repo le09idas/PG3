@@ -553,6 +553,8 @@ extern const u8 RustboroCity_Gym_EventScript_RegisterRoxanne[];
 extern const u8 MossdeepCity_SpaceCenter_2F_EventScript_RivalRayquazaCall[];
 extern const u8 QuestLati_EventScript_Awaken[];
 extern const u8 QuestLati_EventScript_BirchCall[];
+extern const u8 QuestWeather_EventScript_InstituteCall[];
+extern const u8 QuestWeather_EventScript_StevenCall[];
 extern const u8 SSTidalCorridor_EventScript_ReachedStepCount[];
 extern const u8 EventScript_FallDownHoleMtPyre[];
 

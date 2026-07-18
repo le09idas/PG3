@@ -267,8 +267,8 @@
 #define VAR_QUEST_LATI_STEP_COUNTER                      0x40F7 // PG3
 #define VAR_QUEST_LATI_BOX_ID                            0x40F8 // PG3
 #define VAR_QUEST_LATI_BOX_POS                           0x40F9 // PG3
-#define VAR_UNUSED_0x40FA                                0x40FA // Unused Var
-#define VAR_UNUSED_0x40FB                                0x40FB // Unused Var
+#define VAR_QUEST_WEATHER_CALL_STEP_COUNTER              0x40FA // PG3
+#define VAR_QUEST_STEVEN_CALL_STEP_COUNTER               0x40FB // PG3
 #define VAR_UNUSED_0x40FC                                0x40FC // Unused Var
 #define VAR_UNUSED_0x40FD                                0x40FD // Unused Var
 #define VAR_UNUSED_0x40FE                                0x40FE // Unused Var

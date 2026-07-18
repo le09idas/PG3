@@ -154,6 +154,7 @@ gSpecials::
 	def_special DoLatiSpawnOutAnim
 	def_special DoLatiSpawnInAnim
 	def_special DestroyVirtualObjects
+	def_special IsRayquazaInParty
 	def_special CountPartyNonEggMons
 	def_special CountPartyAliveNonEggMons_IgnoreVar0x8004Slot
 	def_special ShouldReadyContestArtist

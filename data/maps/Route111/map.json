@@ -639,6 +639,48 @@
       "trainer_sight_or_berry_tree_id": "0",
       "script": "Route111_EventScript_RockSmashTipFatMan",
       "flag": "FLAG_HIDE_ROUTE_111_ROCK_SMASH_TIP_GUY"
+    },
+    {
+      "local_id": "LOCALID_ROUTE111_WEATHER_MARKER_A",
+      "graphics_id": "OBJ_EVENT_GFX_BREAKABLE_ROCK",
+      "x": 12,
+      "y": 55,
+      "elevation": 0,
+      "movement_type": "MOVEMENT_TYPE_NONE",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "Route111_EventScript_WeatherMarkerA",
+      "flag": "FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS"
+    },
+    {
+      "local_id": "LOCALID_ROUTE111_WEATHER_MARKER_B",
+      "graphics_id": "OBJ_EVENT_GFX_BREAKABLE_ROCK",
+      "x": 14,
+      "y": 57,
+      "elevation": 0,
+      "movement_type": "MOVEMENT_TYPE_NONE",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "Route111_EventScript_WeatherMarkerB",
+      "flag": "FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS"
+    },
+    {
+      "local_id": "LOCALID_ROUTE111_WEATHER_MARKER_C",
+      "graphics_id": "OBJ_EVENT_GFX_BREAKABLE_ROCK",
+      "x": 11,
+      "y": 58,
+      "elevation": 0,
+      "movement_type": "MOVEMENT_TYPE_NONE",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "Route111_EventScript_WeatherMarkerC",
+      "flag": "FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS"
     }
   ],
   "warp_events": [

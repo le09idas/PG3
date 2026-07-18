@@ -20,6 +20,11 @@ bool32 ShouldDoLatiBirchCall(void);
 void DoLatiSpawnOutAnim(void);
 void DoLatiSpawnInAnim(void);
 
+// PG3 quest: Aurora Ticket / weather anomaly sidequest
+bool8 IsRayquazaInParty(void);
+bool32 ShouldDoWeatherInstituteCall(void);
+bool32 ShouldDoStevenTicketCall(void);
+
 bool32 ShouldDoWallyCall(void);
 bool32 ShouldDoScottFortreeCall(void);
 bool32 ShouldDoScottBattleFrontierCall(void);
