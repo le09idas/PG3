@@ -6,6 +6,106 @@ read it first.
 
 ---
 
+## 2026-07-19 — Aurora Ticket marker placement (Porymap) + Johto/Heart & Soul research thread
+
+**Porymap pass, Windows machine.** Finalized the 9 weather-anomaly marker
+objects (Route111/Route119/MossdeepCity) and Steven's Space Center 2F spot
+that were placed blind from `map.json` coordinates in the 2026-07-18 session.
+All repositioned onto confirmed-walkable tiles in Porymap; also swapped the
+markers' graphic from the placeholder `OBJ_EVENT_GFX_BREAKABLE_ROCK` to
+`OBJ_EVENT_GFX_DEOXYS_TRIANGLE` (Birth Island's puzzle-stone sprite, already
+in the project, unused anywhere else) — a better thematic fit for "mysterious
+marker stone" than a smashable rock. Steven's `movement_type` changed to
+`MOVEMENT_TYPE_FACE_UP` so he reads as looking out the window. Ran an
+automated placement check before committing (bounds, per-tile collision bit,
+metatile behavior, object-overlap) since a real mGBA visual pass wasn't
+available this session — all 4 sites came back clean (Route 111's markers
+specifically landed on `MB_DEEP_SAND`, confirming they're actually in the
+sandy portion, not just nearby). Committed as `a450dfac5`. Still recommend a
+real mGBA look when convenient — data-level checks confirm walkability, not
+whether it *looks* right next to nearby scenery.
+
+**Side-effect cleanup:** Porymap's project load/tab-open touched three
+unrelated files with no real content changes — reverted before committing:
+- `data/maps/map_groups.json` — had dropped the entire
+  `connections_include_order` list (67 map names, controls the build's
+  `connections.inc` include order per `tools/mapjson/mapjson.cpp:465`).
+  Not fatal (code falls back to default order if empty) but an unwanted
+  project-wide structural change.
+- `src/data/region_map/region_map_sections.json` — had stripped
+  `"name_clone": true` from 7 entries (e.g. `MAPSEC_ROUTE_4_POKECENTER`,
+  `MAPSEC_KANTO_VICTORY_ROAD`). **Would have broken the build** — that flag
+  is what makes the codegen template emit a `_Clone`-suffixed C symbol name
+  when two map sections share a display name; without it, two sections
+  sharing a name (e.g. "ROUTE 4") generate the same
+  `static const u8 sMapName_ROUTE_4[]` symbol twice → duplicate-definition
+  compile error.
+- `src/data/wild_encounters.json` — harmless, just reformatted (one array
+  value per line instead of one line per array) with identical values.
+
+Lesson for future Porymap sessions: check `git status` for unexpected
+diffs beyond the maps actually being edited before committing — Porymap's
+own save routine doesn't fully round-trip some of this project's
+hand-maintained JSON fields.
+
+**New research thread: Pokémon Heart & Soul as a Johto candidate.** User
+asked about importing gym leader sprites from other generations (Gen 2/Gen
+4) — technically possible but real per-sprite art conversion work (GBA's
+64×64 4bpp front-sprite / 16×16-per-frame overworld format doesn't accept
+GBC or DS source art without a redraw pass), not a batch port. Then asked
+about **Pokémon Heart & Soul** (pokecommunity.com thread, also
+pokemonheartsoul.com, GitHub `PokemonHnS-Development/pokemonHnS`) — a
+**completed, fully playtested Johto region hack built on the same
+pokeemerald/Modern Emerald decomp base PG3 uses.** Confirmed via the repo's
+file tree: standard pokeemerald layout, all 8 Johto gym leaders present
+(`leader_falkner.png` through `leader_clair.png`), full E4 + Lance
+(`elite_four_will/koga/bruno/karen.png`, `champion_lance.png`) using the
+exact same naming convention PG3 already has for Hoenn, and real built-out
+towns in `data/maps` (Azalea, Blackthorn, etc., each with Gym/Mart/
+PokemonCenter/houses — not a skeleton). Being the same decomp base means
+none of the conversion-work problem the Gen 2/4 sprite question ran into —
+this would integrate the way Hoenn's own trainer data already does.
+
+**This directly contradicts ROADMAP.md's north-star line** ("no other
+region has portable Gen-3-native map/trainer assets" for the third region) —
+HnS is a real counterexample. Not treating this as decided scope yet, just
+flagging it as a live candidate; see ROADMAP.md north-star note.
+
+**Licensing status, unresolved:** GitHub's license API returns 404 for the
+HnS repo — no formal LICENSE file. Their README says "feel free to take
+advantage of the open source," a genuine but informal invitation, and HnS
+itself credits several other community contributors for some of its own
+assets (so not everything in their repo is originally theirs to grant
+permission for either). Recommended next step, not yet done: ask the HnS
+team directly (they explicitly invite Discord contact) for an explicit
+yes on reusing specific Johto assets in a separate hack, rather than
+pulling anything based on the README alone.
+
+**Current phase:** Phase 1 in progress — Aurora Ticket marker placement
+done, pending final mGBA verification of the full quest chain (per
+2026-07-18's next-up list, still open).
+
+**Next up:**
+- Push this session's commit, then on Ubuntu: `make modern`, verify the
+  full Aurora Ticket chain end-to-end in mGBA (per 2026-07-18's list).
+- Tilemap Studio pass on the summary screen INFO/SKILLS backgrounds
+  (Windows, queued below in the Pending Windows-side visual work list) —
+  taken up directly after this entry, see that section for the plan.
+- If the Johto/HnS thread gets picked back up: reach out to the HnS team
+  for explicit permission before importing anything; if granted, scope
+  which assets (sprites only vs. maps too) and where this fits against the
+  existing Phase 5 Kanto plan (parallel third-region effort, or does it
+  reshape Phase 5 itself?).
+
+**Known issues / open decisions:**
+- Aurora Ticket marker/Steven placement now data-verified but not yet
+  eyeballed in mGBA — carried over from 2026-07-18, still the one real risk
+  item pending close-out.
+- Johto-via-Heart&Soul is unresolved scope, not committed — needs the
+  permissions ask before it's anything more than a research note.
+
+---
+
 ## 2026-07-18 — Aurora Ticket via Rayquaza weather-anomaly sidequest
 
 Same shape as the Eon Ticket fix: the Aurora Ticket (→ Birth Island →

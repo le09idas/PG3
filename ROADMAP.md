@@ -3,7 +3,11 @@
 **Base:** vanilla pret/pokeemerald · **Scope:** Gen 3 only, full real-cart interop preserved.
 **North star:** a game spanning three Gen 3 regions — Hoenn, then Kanto (via
 portable `pokefirered` assets, see Phase 5), third region TBD pending art
-feasibility (no other region has portable Gen-3-native map/trainer assets).
+feasibility. **Candidate found (2026-07-19, unresolved):** Pokémon Heart &
+Soul, a completed Johto hack built on the same pokeemerald decomp base, with
+full gym leader/E4/champion sprites and built-out towns already in
+Gen-3-native format — see DEVLOG for details. Blocked on getting explicit
+permission from the HnS team before treating this as real scope.
 **Near-term:** a complete, replayable Hoenn first.
 
 Each item below is tagged by change type: **[One-off]** single value/file edits,
