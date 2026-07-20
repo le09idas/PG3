@@ -269,9 +269,14 @@
 #define VAR_QUEST_LATI_BOX_POS                           0x40F9 // PG3
 #define VAR_QUEST_WEATHER_CALL_STEP_COUNTER              0x40FA // PG3
 #define VAR_QUEST_STEVEN_CALL_STEP_COUNTER               0x40FB // PG3
-#define VAR_UNUSED_0x40FC                                0x40FC // Unused Var
-#define VAR_UNUSED_0x40FD                                0x40FD // Unused Var
-#define VAR_UNUSED_0x40FE                                0x40FE // Unused Var
+// PG3: shared across ALL gym leader rematch-call systems (not just Roxanne)
+// to keep the per-leader var cost near zero -- see the GYM_REMATCH_* bit-
+// packing helpers in field_specials.c. _LAST_ACK_TIERS_0/_1 hold up to 10
+// leaders' worth of "last acknowledged tier" values (3 bits each), more
+// than the 8 gym leaders this is meant to eventually cover.
+#define VAR_GYM_REMATCH_CALL_STEP_COUNTER                0x40FC // PG3
+#define VAR_GYM_REMATCH_LAST_ACK_TIERS_0                 0x40FD // PG3
+#define VAR_GYM_REMATCH_LAST_ACK_TIERS_1                 0x40FE // PG3
 #define VAR_UNUSED_0x40FF                                0x40FF // Unused Var
 
 #define VARS_END                                         0x40FF

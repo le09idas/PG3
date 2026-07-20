@@ -3,8 +3,26 @@ RustboroCity_Gym_MapScripts::
 
 RustboroCity_Gym_EventScript_Roxanne::
 	trainerbattle_single TRAINER_ROXANNE_1, RustboroCity_Gym_Text_RoxanneIntro, RustboroCity_Gym_Text_RoxanneDefeat, RustboroCity_Gym_EventScript_RoxanneDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, RustboroCity_Gym_EventScript_RoxanneRematch
+	@ PG3 Phase 2 prototype: deterministic rematch-tier gating, replacing
+	@ vanilla's RNG-based ShouldTryRematchBattle for Roxanne only (see
+	@ GetRoxanneAllowedRematchTier in src/field_specials.c). The other 7 gym
+	@ leaders + Elite Four are untouched, still on vanilla RNG behavior --
+	@ this proves the mechanism on one leader before scaling out.
+	specialvar VAR_RESULT, GetRoxanneAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, RustboroCity_Gym_EventScript_RoxanneNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 2
+	goto_if_not_defeated TRAINER_ROXANNE_2, RustboroCity_Gym_EventScript_RoxanneCheckRematchGate
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_ROXANNE_3, RustboroCity_Gym_EventScript_RoxanneCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_ROXANNE_4, RustboroCity_Gym_EventScript_RoxanneCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_ROXANNE_5, RustboroCity_Gym_EventScript_RoxanneCheckRematchGate
+	setvar VAR_0x8008, 6
+RustboroCity_Gym_EventScript_RoxanneCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, RustboroCity_Gym_EventScript_RoxanneRematch
+RustboroCity_Gym_EventScript_RoxanneNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_ROCK_TOMB, RustboroCity_Gym_EventScript_GiveRockTomb
 	msgbox RustboroCity_Gym_Text_RoxannePostBattle, MSGBOX_DEFAULT
 	release
@@ -34,7 +52,7 @@ RustboroCity_Gym_EventScript_GiveRockTomb::
 	end
 
 RustboroCity_Gym_EventScript_RoxanneRematch::
-	trainerbattle_rematch_double TRAINER_ROXANNE_1, RustboroCity_Gym_Text_RoxannePreRematch, RustboroCity_Gym_Text_RoxanneRematchDefeat, RustboroCity_Gym_Text_RoxanneRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_ROXANNE_1, RustboroCity_Gym_Text_RoxannePreRematch, RustboroCity_Gym_Text_RoxanneRematchDefeat
 	msgbox RustboroCity_Gym_Text_RoxannePostRematch, MSGBOX_AUTOCLOSE
 	end
 
@@ -100,6 +118,43 @@ RustboroCity_Gym_EventScript_RegisterRoxanne::
 	delay 30
 	setflag FLAG_ENABLE_ROXANNE_MATCH_CALL
 	clearflag FLAG_ENABLE_ROXANNE_FIRST_CALL
+	releaseall
+	end
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetRoxanneNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 2, RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier2
+	goto_if_eq VAR_RESULT, 3, RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier5
+	goto RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier6
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier2::
+	pokenavcall RustboroCity_Gym_Text_RoxanneRematchCall_Tier2
+	goto RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier3::
+	pokenavcall RustboroCity_Gym_Text_RoxanneRematchCall_Tier3
+	goto RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier4::
+	pokenavcall RustboroCity_Gym_Text_RoxanneRematchCall_Tier4
+	goto RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier5::
+	pokenavcall RustboroCity_Gym_Text_RoxanneRematchCall_Tier5
+	goto RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Tier6::
+	pokenavcall RustboroCity_Gym_Text_RoxanneRematchCall_Tier6
+
+RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetRoxanneLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
 	releaseall
 	end
 
@@ -252,6 +307,57 @@ RustboroCity_Gym_Text_RegisteredRoxanne:
 	.string "Registered GYM LEADER ROXANNE\n"
 	.string "in the POKéNAV.$"
 
+RustboroCity_Gym_Text_RoxanneRematchCall_Tier2:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "ROXANNE: Oh, {PLAYER}? It's ROXANNE.\p"
+	.string "I heard you beat FLANNERY. I've been\n"
+	.string "training since our last battle, and\l"
+	.string "I think I'm ready for a rematch.\p"
+	.string "Come by the GYM whenever you like!$"
+
+RustboroCity_Gym_Text_RoxanneRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "ROXANNE: Oh, {PLAYER}? It's ROXANNE.\p"
+	.string "Clearing VICTORY ROAD is no small\n"
+	.string "feat. I've sharpened my strategy\l"
+	.string "since our last match, too.\p"
+	.string "Stop by the GYM -- let's see how far\n"
+	.string "we've both come.$"
+
+RustboroCity_Gym_Text_RoxanneRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "ROXANNE: Oh, {PLAYER}? It's ROXANNE.\p"
+	.string "You're a CHAMPION now! I never\n"
+	.string "imagined you'd come so far.\p"
+	.string "I've been retraining my team to be\n"
+	.string "worthy of a CHAMPION's time.\p"
+	.string "Please, come by the GYM again.$"
+
+RustboroCity_Gym_Text_RoxanneRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "ROXANNE: Oh, {PLAYER}? It's ROXANNE.\p"
+	.string "News of your BATTLE FRONTIER SYMBOLS\n"
+	.string "reached even RUSTBORO.\p"
+	.string "I've been studying the FRONTIER\n"
+	.string "BRAINS' techniques myself.\l"
+	.string "Come see what I've learned!$"
+
+RustboroCity_Gym_Text_RoxanneRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "ROXANNE: Oh, {PLAYER}? It's ROXANNE.\p"
+	.string "GOLD SYMBOLS at every FRONTIER\n"
+	.string "FACILITY… Incredible.\p"
+	.string "I don't have anything new to show\n"
+	.string "you, but I've pushed my own team as\l"
+	.string "far as it can go.\p"
+	.string "This will be our toughest battle yet.\n"
+	.string "Come by the GYM!$"
+
 RustboroCity_Gym_Text_RoxannePreRematch:
 	.string "ROXANNE: I'm so glad to see you again.\n"
 	.string "I'm ROXANNE, the GYM LEADER here.\p"
@@ -270,14 +376,3 @@ RustboroCity_Gym_Text_RoxannePostRematch:
 	.string "That awareness makes me love battling\n"
 	.string "all that much more!$"
 
-RustboroCity_Gym_Text_RoxanneRematchNeedTwoMons:
-	.string "ROXANNE: I'm so glad to see you again.\n"
-	.string "I'm ROXANNE, the GYM LEADER here.\p"
-	.string "I'm sure we've both experienced many\n"
-	.string "battles since we last met.\p"
-	.string "I would like to see how much better\n"
-	.string "we've become…\p"
-	.string "Oh, no…\n"
-	.string "You only have one POKéMON with you?\p"
-	.string "Please return with at least one more\n"
-	.string "POKéMON.$"

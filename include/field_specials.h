@@ -24,6 +24,13 @@ void DoLatiSpawnInAnim(void);
 bool8 IsRayquazaInParty(void);
 bool32 ShouldDoWeatherInstituteCall(void);
 bool32 ShouldDoStevenTicketCall(void);
+bool8 IsQuestWeatherCoordEventSuppressed(void);
+
+// PG3 Phase 2 prototype: gym leader rematch-tier gating
+u8 GetRoxanneAllowedRematchTier(void);
+bool32 ShouldDoRoxanneRematchCall(void);
+u8 GetRoxanneNextRematchTier(void);
+void SetRoxanneLastAcknowledgedRematchTier(void);
 
 bool32 ShouldDoWallyCall(void);
 bool32 ShouldDoScottFortreeCall(void);

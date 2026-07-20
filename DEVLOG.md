@@ -6,6 +6,567 @@ read it first.
 
 ---
 
+## 2026-07-19 — Var-budget audit + shared/bit-packed rematch-call scheme
+
+**Budget question:** with 8 leaders eventually needing their own rematch
+call system, the naive "2 vars per leader" estimate (16 vars) badly
+strained the var budget -- checked `include/global.h`'s `SaveBlock1`
+layout precisely: `vars[VARS_COUNT]` sits at a fixed offset, and the whole
+struct (`sizeof: 0x3D88`) has exactly 120 bytes (60 more `u16` vars) of
+headroom before hitting the 4-sector budget reserved for it
+(`SECTOR_DATA_SIZE * 4`). Expanding `VARS_END` is technically free
+space-wise and needs no new file, but shifts every field *after* `vars[]`
+to a new byte offset -- silently corrupting any save written before the
+change (every `test_game_saves/` checkpoint included), since nothing in
+pokeemerald migrates old saves to a new `SaveBlock1` layout automatically.
+That'd be a real, custom, high-risk piece of save-file surgery to build,
+not just "resize and copy."
+
+**Turned out to be unnecessary.** Neither var actually needs to be
+per-leader: the step-counter's only job is pacing the call by ~50 steps,
+which can be shared across all leaders (one pending call shares the wait
+timer); the "last acknowledged tier" value only ranges 0-6 (3 bits), so
+bit-packing 5 leaders per `u16` var fits all 8 gym leaders in 2 vars total.
+Retrofit-tested on Roxanne now, before replicating to the other 7:
+- `VAR_GYM_REMATCH_CALL_STEP_COUNTER` (shared, `vars.h` 0x40FC) replaces
+  the old per-leader step counter.
+- `VAR_GYM_REMATCH_LAST_ACK_TIERS_0`/`_1` (0x40FD/0x40FE) bit-pack up to
+  10 leaders' "last acknowledged tier" values, 3 bits each.
+- New `GYM_REMATCH_LEADER_*` enum + `GetLastAcknowledgedRematchTier()` /
+  `SetLastAcknowledgedRematchTier()` helpers (`src/field_specials.c`) do
+  the pack/unpack in C; scripts are unaffected -- they still just call a
+  special (`SetRoxanneLastAcknowledgedRematchTier`, reads `VAR_0x8008`)
+  the same as before, since bit-packing can't be done with `copyvar`.
+
+Net result: the entire 8-leader rollout should cost **~3 vars total**
+instead of 16, comfortably within the 15 that were free -- no `VARS_END`
+expansion, no save-migration risk, needed for this scope. Confirmed with
+user that this doesn't block a future Kanto/Johto import either, since the
+binding constraint there is the separate `TRAINER_*` ID budget (~9 free,
+~100 reserved), not vars.
+
+**Not yet re-verified live.**
+
+---
+
+## 2026-07-19 — Call cadence: per-fight, not per-readiness-window
+
+Live test on the post-Battle-Frontier save exposed the exact tradeoff
+flagged earlier: since the save's milestone tier was already maxed before
+ever touching a Roxanne rematch, the old "one call per readiness window"
+design meant only a single call ever fired (tier 2/Flannery), then silence
+through tiers 3-6 despite each becoming genuinely fightable in turn.
+
+User's fix suggestion: tie the call to finishing each individual
+benchmark rather than the overall readiness window. Implemented by
+swapping the trigger condition in `ShouldDoRoxanneRematchCall()`
+(`src/field_specials.c`) from a "already called, still ready" flag to
+comparing `GetRoxanneNextRematchTier()` (the specific next fight) against
+a re-added `VAR_ROXANNE_LAST_ACKNOWLEDGED_REMATCH_TIER` -- still gated by
+`IsRoxanneRematchReady()` so it can never promise an unreachable fight, but
+now re-arms itself the instant the "next fight" value changes (i.e., right
+after each individual rematch is won), rather than only when the player's
+overall milestone tier changes. Removed the now-unused
+`FLAG_CALLED_ABOUT_ROXANNE_REMATCH`.
+
+**Not yet re-verified live** -- next test should confirm beating `ROXANNE_2`
+immediately re-arms the tier-3 call (~50 steps later) even when milestone
+tier was already maxed from the start.
+
+---
+
+## 2026-07-19 — Per-tier PokeNav call flavor text
+
+Replaced the single generic rematch-call message with 5 distinct ones, one
+per tier (`RustboroCity_Gym_Text_RoxanneRematchCall_Tier2` through `_Tier6`,
+`data/maps/RustboroCity_Gym/scripts.inc`), each referencing the specific
+milestone that unlocked it (Flannery / Victory Road / Elite Four / Frontier
+Symbols / all-Gold). New `GetRoxanneNextRematchTier()`
+(`src/field_specials.c`, registered as a special) determines which one to
+show -- deliberately walks the same undefeated-trainer sequence as
+`IsRoxanneRematchReady` rather than using `GetRoxanneAllowedRematchTier()`
+directly, since the call should describe the *next fightable battle*, not
+the player's overall milestone tier (which can be ahead of it, since
+rematches can't be skipped). `RustboroCity_Gym_EventScript_RoxanneRematchCall`
+now branches on this value to pick the right `pokenavcall`.
+
+Also confirmed with user: no prior instruction exists to keep any specific
+tier as a double battle -- the original ask was to remove doubles across
+the board, which was already done (all of `TRAINER_ROXANNE_2`-`_5` set to
+`.doubleBattle = FALSE`).
+
+Match-call cadence (one call per "readiness window," not one per individual
+chained battle when catching up across multiple missed tiers at once) was
+discussed and left as-is per user's call -- revisit when generalizing to
+the other 7 gym leaders.
+
+**Not yet re-verified live.**
+
+---
+
+## 2026-07-19 — Fixed: blink indicator / PokeNav call promising a rematch that wasn't actually ready
+
+User report: after the off-by-one gate fix, Roxanne correctly blocked the
+premature Aerodactyl fight, but the PokeNav match call list still showed
+her name as "ready for rematch" (blinking pokeball). Investigated and
+found the root cause -- both the blink indicator and the new proactive
+call were relying on vanilla's `trainerRematches[]`/`UpdateRematchIfDefeated`
+bookkeeping, which only tracks "is there an undefeated trainer next in the
+sequence," with **no awareness of the tier gate at all**. So the moment
+*any* milestone unlocked tier 2+, she'd get marked "ready" for whichever
+`TRAINER_ROXANNE_N` came next in line, even if that N actually required a
+higher tier than the player currently had -- promising a battle the gym's
+own gate would then correctly refuse.
+
+**Fix:** added `IsRoxanneRematchReady(tier)` (`src/field_specials.c`,
+static) -- mirrors the gym script's own gate chain in C (walks
+`TRAINER_ROXANNE_2..5`, checks `HasTrainerBeenFought` against each one's
+required tier) as the single source of truth for "would talking to her
+right now actually start a battle." Both the vanilla bookkeeping sync
+inside `GetRoxanneAllowedRematchTier()` and `ShouldDoRoxanneRematchCall()`
+now gate on this instead of on raw tier value. Replaced the call system's
+"last acknowledged tier" var tracking with a simpler
+`FLAG_CALLED_ABOUT_ROXANNE_REMATCH` that clears itself once
+`IsRoxanneRematchReady` goes false again (i.e., once the pending rematch is
+actually fought) -- removed the now-unused
+`VAR_ROXANNE_LAST_ACKNOWLEDGED_REMATCH_TIER` reservation. Added
+`#include "constants/opponents.h"` to `field_specials.c` for the
+`TRAINER_ROXANNE_*` constants.
+
+**Not yet re-verified live.**
+
+---
+
+## 2026-07-19 — Rematch call system + off-by-one gate bug caught by live testing
+
+**PokéNav rematch-call system built:** `ShouldDoRoxanneRematchCall()`
+(`src/field_specials.c`) checks `GetRoxanneAllowedRematchTier()` against a
+new persistent "last acknowledged tier" var every qualifying outdoor step;
+once it's gone up, counts 50 steps then fires
+`RustboroCity_Gym_EventScript_RoxanneRematchCall`
+(`data/maps/RustboroCity_Gym/scripts.inc`), mirroring her existing
+vanilla registration-call script. New vars
+`VAR_ROXANNE_REMATCH_CALL_STEP_COUNTER` /
+`VAR_ROXANNE_LAST_ACKNOWLEDGED_REMATCH_TIER` (tail of `vars.h`). Wired
+into `TryStartStepCountScript` (`src/field_control_avatar.c`).
+
+**Blink-indicator bug found before testing, fixed proactively:** the
+PokéNav list's "wants a rematch" pokéball is purely
+`trainerRematches[REMATCH_ROXANNE] != 0`, and `UpdateRematchIfDefeated()`
+was running unconditionally at the top of `GetRoxanneAllowedRematchTier()`
+-- meaning it would've lit the blink the moment `TRAINER_ROXANNE_1` was
+beaten and the player took one outdoor step, regardless of whether any
+real milestone (even tier 2) had been met. Restructured the function to
+compute the tier first and only sync the bookkeeping when `tier != 0`.
+
+**Off-by-one gate bug found via live testing:** user reported being able
+to rematch Roxanne a 4th time (reaching her Aerodactyl team,
+`TRAINER_ROXANNE_5`) on a save that should only have unlocked 3 rematches
+(E4 beaten = tier 4, no Frontier symbols yet = tier 5 not unlocked). Root
+cause: the gate chain in `RustboroCity_Gym_EventScript_Roxanne` set
+`VAR_0x8008` to `1,2,3,4` right before checking whether
+`TRAINER_ROXANNE_2,3,4,5` were undefeated -- one less than the tier each
+of those trainers actually represents (2,3,4,5). So checking `ROXANNE_5`
+compared the player's tier against `4` instead of `5`, letting a tier-4
+player through a stage early. Fixed by setting `VAR_0x8008` to `2,3,4,5`
+before each respective check, and `6` as the final fallthrough value (for
+the tier-6 level-bonus reuse). Verified against the tier=4 case by hand:
+`ROXANNE_2`(needs 2)/`_3`(needs 3)/`_4`(needs 4) all correctly pass at
+tier 4; `_5`(needs 5) now correctly fails until Frontier symbols are
+earned.
+
+**Not yet re-verified live** — next session should confirm the corrected
+gate blocks Aerodactyl until tier 5, and that the PokéNav call/blink
+system behaves as described above.
+
+---
+
+## 2026-07-19 — "Uncapped" rematch tiers prototype: level-scaling instead of new rosters
+
+User pitched a full rematch redesign for all 8 gym leaders + Elite Four +
+rivals (5 milestone flags: Flannery beat / Victory Road Wally / E4 beat /
+Silver medals / Gold medals, with a per-trainer eligibility table), plus a
+PokéNav call-when-eligible idea and Steven referring the player back to E4.
+Central open question before committing to that design: whether rematch
+tiers *have* to cost a dedicated `TRAINER_*` ID each (the scarce resource
+identified earlier this session), or whether a tier could just reuse an
+existing roster at a higher level.
+
+**Answer: yes, and it's now proven working.** Added `gTrainerPartyLevelBonus`
+(self-clearing `EWRAM_DATA u8`, `src/battle_main.c`) plus a
+`GetTrainerMonLevel()` helper wired into all 4 `CreateNPCTrainerParty`
+party-building cases (clamped to `MAX_LEVEL`). Exposed via `battle.h`.
+`GetRoxanneAllowedRematchTier()` (`src/field_specials.c`) now has a tier 6:
+gated on all 7 Battle Frontier Gold Symbols, it sets the bonus to +10 and
+returns 6 — no new trainer data or script changes needed, since
+`GetRematchTrainerIdFromTable`'s own "already beaten at max stage" fallback
+already resolves back to `TRAINER_ROXANNE_5` once tiers 2-5 are cleared, and
+6 satisfies the script's existing `>= 5` gate check as-is.
+
+**Verification detour:** temporarily lowered the tier-6 gate to
+`FLAG_SYS_GAME_CLEAR` (gold symbols aren't reachable on the test save) to
+test live, plus temporary debug msgboxes showing the computed tier/bonus.
+First read looked like a failure ("Aerodactyl still at 57") — turned out to
+be a flawed test, not a bug: since the test save already had
+`FLAG_SYS_GAME_CLEAR` set from the start, the temp gate meant *every*
+rematch fought during the whole debugging session (tiers 2 through 6) had
+already been getting the +10 bonus from the very first fight, so there was
+never an unbonused baseline to compare against. Checked
+`TRAINER_ROXANNE_5`'s real data (`src/data/trainer_parties.h`): Aerodactyl
+is defined at level 47. `47 + 10 = 57` — matches exactly. Mechanism
+confirmed working. All debug scaffolding removed, temp gate reverted to the
+real Gold Symbols condition.
+
+Added `DEV_NOTES/ROXANNE_REMATCH_ROSTERS.md` — full tier 1-6 roster
+reference table, since the user doesn't love the current hand-built
+lineups and wants to revisit them later without re-deriving from
+`trainer_parties.h` each time.
+
+**Current phase:** Phase 2 design discussion, not yet committed. The
+5-milestone table, per-trainer eligibility, PokéNav call system, and
+lineup-shuffle idea are all still just discussed, not built.
+
+**Next up:**
+- Decide real values for the tier-6 style bonus (±level amount) and how
+  many "scaled" tiers stack on top of a hand-built base roster, now that
+  the mechanism is proven.
+- Design the generic PokéNav "your rematch is ready" call system (mirrors
+  `ShouldDoWallyCall`/the Aurora quest's Institute calls).
+- Build the 5-milestone flag set + per-trainer eligibility table (Roxanne's
+  4 real milestones already map 1:1 to what's built; needs generalizing to
+  the other 12 trainers).
+- Clarify what "Wattson's quest" (mentioned as his milestone-1
+  prerequisite) refers to — not yet answered.
+- Revisit Roxanne's actual lineups (species/levels/movesets) — user
+  flagged them as not-great, deferred for later.
+
+---
+
+## 2026-07-19 — Roxanne rematch fix: vanilla's RNG "ready" bookkeeping still gated the battle
+
+User report: on a save with all 8 badges + Elite Four beaten, talking to
+Roxanne never actually started a rematch battle, despite the new tier gate
+(previous entry below) looking correct.
+
+**Root cause, found via targeted debug msgboxes (not guesswork) added
+temporarily to `RustboroCity_Gym_EventScript_Roxanne`:** the tier gate itself
+was working perfectly (confirmed tier=4, gate=1, correctly entered the
+rematch branch) — but `trainerbattle_rematch_double`'s underlying script
+chain (`EventScript_TryDoDoubleRematchBattle` in
+`data/scripts/trainer_battle.inc`) does its own independent check before
+starting a battle: `specialvar VAR_RESULT, IsTrainerReadyForRematch` /
+`goto_if_eq VAR_RESULT, FALSE, EventScript_NoDoubleRematchTrainerBattle`.
+`IsTrainerReadyForRematch` reads `gSaveBlock1Ptr->trainerRematches[]` —
+vanilla's own RNG bookkeeping (31%-per-battle roll via
+`UpdateGymLeaderRematch`), completely separate from the new story-flag gate.
+Since the new gate replaces the *decision to route toward a rematch* but
+never touched that bookkeeping, it stayed zeroed for Roxanne and the battle
+command silently no-op'd straight to the post-battle text every time,
+regardless of tier.
+
+**Fix:** `GetRoxanneAllowedRematchTier()` (`src/field_specials.c`) now opens
+with `UpdateRematchIfDefeated(REMATCH_ROXANNE)` — an existing, non-static
+vanilla helper already used the same way elsewhere (`src/match_call.c:1528`,
+for the Match Call system) that recomputes and force-syncs
+`trainerRematches[REMATCH_ROXANNE]` from `HasTrainerBeenFought()` state.
+Added `#include "battle_setup.h"` and `#include "constants/rematches.h"` to
+`field_specials.c`. This keeps the two systems in sync without touching
+vanilla's shared RNG code path (still zero blast radius on the other 7
+leaders + Elite Four). Debug msgboxes fully removed after confirming the
+fix. Builds clean; **this specific fix has not yet been re-verified live in
+mGBA** — next session should confirm the rematch battle actually starts now
+on the same save that surfaced the bug.
+
+**Lesson for scaling to the other 7 leaders:** any deterministic gate that
+still ends in vanilla's `trainerbattle_rematch`/`_double` macro needs this
+same `UpdateRematchIfDefeated(REMATCH_<leader>)` call — the macro's
+"ready" check isn't optional/bypassable from script level, so every future
+leader's gating function must include it too.
+
+**Follow-up: rematch was still a double battle after the fix above.**
+Turns out vanilla's design choice was two-layered — the script had also been
+switched from `trainerbattle_rematch_double` to `trainerbattle_rematch`
+(single) per the user's call ("not sure why they wanted this" — no strong
+reason to keep vanilla's doubles-only rematch format), but the battle format
+is actually decided by the trainer's own data, not the script macro:
+`TRAINER_ROXANNE_2`-`_5` all had `.doubleBattle = TRUE` baked into their
+entries in `src/data/trainers.h`. Flipped all 4 to `FALSE`. Removed the
+now-orphaned `RustboroCity_Gym_Text_RoxanneRematchNeedTwoMons` text (was
+only reachable via the double-battle macro's 4th argument). Builds clean;
+**not yet re-verified live**.
+
+---
+
+## 2026-07-19 — Phase 2 prototype: deterministic Roxanne rematch gating
+
+First real Phase 2 implementation, per ROADMAP's "prototype ONE gym leader
+end-to-end before scaling out." Picked Roxanne, the established reference
+(already has 5 baked-in vanilla tiers, `TRAINER_ROXANNE_1`-`_5`).
+
+**What vanilla actually does (confirmed via code read, not assumption):**
+`UpdateGymLeaderRematch()` (`src/gym_leader_rematch.c`) rolls `Random() % 100
+<= 30` on a cadence (every ~20 trainer battles / ~60 wild battles,
+`TryUpdateGymLeaderRematchFromTrainer`/`_Wild` in `src/battle_setup.c`),
+gated only by `FLAG_SYS_GAME_CLEAR`. On success, it finds whichever
+gym leader(s) are "furthest behind" (fewest tiers beaten) and randomly
+flips ONE of their `trainerRematches[]` entries non-zero. Critically,
+`trainerRematches[]`'s stored value is **only ever read as a boolean**
+everywhere in the codebase (checked `!= 0`/truthy in every call site, in
+`match_call.c`/`pokenav_match_call_*.c`/`battle_setup.c`) — it just gates
+whether a rematch is offered *at all*. Which specific tier you actually
+fight is separately and correctly resolved by `GetRematchTrainerIdFromTable`
+purely from `HasTrainerBeenFought()` checks against the 5 real trainer IDs —
+already fully deterministic/sequential on its own. So the *only* thing
+standing between "flag-gated" and vanilla was the initial RNG eligibility
+gate — but that gate doesn't stop the player from immediately chaining
+through tiers 3/4/5 back-to-back once *any* rematch is offered, since
+sequential resolution doesn't know about story milestones.
+
+**Design:** rather than touch the shared `UpdateGymLeaderRematch`/
+`ShouldTryRematchBattle`/`trainerRematches[]` system (which all 8 leaders +
+regular trainers use), built a fully parallel, independent gate just for
+Roxanne — zero shared-code blast radius, easy to rip out/adjust before
+scaling to the other 7. New `GetRoxanneAllowedRematchTier()`
+(`src/field_specials.c`) returns the highest tier index (2-5) currently
+unlocked:
+- Tier 2 (Roxanne/Brawly/Wattson's first rematch) — `FLAG_BADGE04_GET`
+  (Flannery beaten).
+- Tier 3 — `FLAG_BADGE08_GET` (Juan beaten) OR
+  `FLAG_DEFEATED_WALLY_VICTORY_ROAD` (Victory Road cleared).
+- Tier 4 — `FLAG_SYS_GAME_CLEAR` (Elite Four beaten once).
+- Tier 5 — 7+ Battle Frontier Symbols total (summed across all 7 facilities
+  via the already-public `GetPlayerSymbolCountForFacility`, each worth up to
+  2 — Silver + Gold).
+
+`data/maps/RustboroCity_Gym/scripts.inc`'s `RustboroCity_Gym_EventScript_
+Roxanne` now calls this special instead of `ShouldTryRematchBattle`, walks a
+`goto_if_not_defeated` chain against `TRAINER_ROXANNE_2`-`_5` to determine
+which tier would be fought next (sequential, matching vanilla's own
+resolution logic), and only proceeds to `trainerbattle_rematch_double` if
+that next tier is `<=` the currently-unlocked tier — otherwise falls through
+to the same vanilla "post-battle" message as before. This lets the player
+freely re-fight any tier they've already unlocked, but blocks racing ahead
+of the story milestones.
+
+Builds clean with `make modern`. Not yet tested live — would need a save
+with all 8 badges + Elite Four cleared to meaningfully exercise tiers 3-5;
+tier 2 (Flannery beaten) is the easiest to verify from an earlier save.
+
+**Current phase:** Phase 2 in progress — Roxanne prototype implemented, pending mGBA verification.
+
+**Next up:**
+- Verify in mGBA: rematch stays locked pre-Flannery, unlocks at each
+  milestone in order, doesn't let the player skip ahead.
+- Once verified, decide the gating scheme for the other 7 leaders (some
+  share Roxanne's tier-2 trigger per the original wave-design idea — Brawly/
+  Wattson beaten-Flannery gate — others need their own story-position-
+  appropriate flags) and scale out.
+- Tier 6/7 (new trainer data beyond vanilla's 5) still needs the
+  `DEV_NOTES/DESIRED_MATCH_CALL_ROSTERS.md` trim decided and the freed
+  trainer-ID budget actually reclaimed before those can be built.
+- Elite Four has **zero** vanilla rematch escalation (`IsRematchForbidden`
+  explicitly blocks `rematchTableId >= REMATCH_ELITE_FOUR_ENTRIES`) — giving
+  them tiers at all (the user's "tier 7" idea) needs an entirely new system,
+  not an extension of the gym leader pattern.
+
+---
+
+## 2026-07-19 — Roadmap reorganization: region-tagged tickets + 2 items rejected
+
+**Old Sea Map (→ Mew) and Mystic Ticket (→ Ho-Oh/Lugia) reassigned** from
+generic Phase 1 scope to the region phases their legendaries thematically
+belong to — Old Sea Map/Mew folded into Phase 5 (Kanto import), Mystic
+Ticket/Ho-Oh/Lugia folded into the new Phase 6 (Johto import, contingent on
+the Heart & Soul permissions ask). Eon and Aurora Tickets stay in Phase 1 as
+the Hoenn-native pair (both already shipped). North-star line updated to
+name Johto/Phase 6 explicitly instead of leaving the third region as a bare
+"TBD."
+
+**Two items dropped from scope entirely, not just deferred:**
+- **Physical/Special split** — user's call: keeping Gen 3's authentic
+  type-based damage-category split is part of what makes this a *Gen 3*
+  game. Changing it would remove real Gen 3 design/challenge, not fix a
+  flaw.
+- **Trade-evolution alternatives** — user's call: real trading between this
+  hack and other ROM hacks (including future PG3 builds) is technically
+  achievable, so there's no need to bypass canonical trade-evolution
+  requirements (Machoke, Kadabra, Haunter, etc.) with in-game workarounds.
+
+Both recorded in ROADMAP.md's new "Rejected" section with rationale, so
+they don't get silently re-proposed later.
+
+**Current phase:** Phase 1 nearly done — only Jirachi (needs its own design
+pass) and the Tilemap Studio summary-screen work remain there.
+
+**Next up:**
+- Encounter overhaul is now the only untouched "big" Phase 1 item.
+- Otherwise: Phase 2 (Match Call), Jirachi design, or Tilemap Studio,
+  whichever the user picks up next.
+
+---
+
+## 2026-07-19 — Weather-not-reverting bug fix (Ubuntu)
+
+First mGBA test of the puzzle sites (post-Porymap-placement): script/trigger
+mechanics worked, but the anomaly weather (Route 111 rain, Route 119
+sandstorm) never reverted after solving — stuck permanently instead of
+going back to normal.
+
+**Root cause:** `QuestWeather_EventScript_SiteResolved`
+(`data/scripts/quest_weather.inc`) hardcoded `setweather WEATHER_SUNNY` as
+"the resolved state" for all 3 sites. That's only actually correct for
+Mossdeep. Route 111 and Route 119 don't have "sunny" as their true
+baseline — Route 111's desert sandstorm is dynamically re-evaluated by
+player Y-coordinate every map transition (`Route111_EventScript_
+CheckSetSandstorm`), and Route 119's weather is driven by sparse coord-event
+trigger tiles clustered only near the far north (y≈6-13) and south
+(y≈130-137) ends of the route — nowhere near the puzzle site (y≈28-30), so
+there's no natural "correction" happening nearby either. Freezing both at
+sunny was a real bug, not a data typo.
+
+**Fix:** `SiteResolved` no longer decides the weather — it only calls
+`doweather` now (applies whatever's already pending). Each site's own tier-C
+completion script sets the correct pending weather immediately before
+jumping in:
+- Route 111: `call Route111_EventScript_CheckSetSandstorm` — reuses the
+  exact same position-based logic the map's own `OnTransition` already
+  relies on, so it's provably correct for wherever the player is standing
+  (confirmed the markers' coordinates fall inside its sandstorm Y/X range).
+- Route 119: `resetweather` (`SetSavedWeatherFromCurrMapHeader`) — falls
+  back to the map's own default (`WEATHER_SUNNY` per `map.json`). Given the
+  puzzle site isn't covered by any of Route 119's real weather-cycle
+  trigger tiles, there isn't a more "correct" special value to restore
+  here — sunny is the honest answer for that exact spot.
+- Mossdeep: `setweather WEATHER_SUNNY` (already its real baseline; unchanged
+  in effect, just moved out of the shared script).
+
+Builds clean with `make modern`. Not yet re-tested live — next mGBA pass
+should confirm weather now visibly returns to normal per-route immediately
+after solving each site.
+
+**Resolved:** the "can't do the puzzle" report turned out to be about Birth
+Island's existing vanilla Deoxys rock-triangle puzzle, not the new weather
+markers — user was just flagging that it's notoriously fiddly (vanilla
+Emerald content, teleporting rock + tight step budget), not asking for a
+change. Decided to leave it exactly as vanilla built it. Separately
+confirmed the weather markers' own trial-and-error puzzle design (no
+in-game hint) is fine as-is — "they weren't too hard." Both open design
+questions now closed, no further changes needed on either front.
+
+**Next up:**
+- Re-verify all 3 sites' weather correctly reverts after solving.
+
+### Follow-up: the above fix wasn't actually sufficient
+
+Re-tested per the "next up" above — still broken. Route 111 stayed on
+sandstorm throughout (anomaly never visibly showed), Route 119's rain never
+stopped (anomaly never visibly showed either). Mossdeep was the only one
+that worked, both times.
+
+**Real root cause:** Route 111 and Route 119 both have their own
+*continuous*, per-tile weather systems that run independent of map
+transitions — Route 111 has scripted coord-event tiles
+(`Route111_EventScript_SandstormTrigger`/`SunTrigger`/`ViciousSandstormTrigger*`)
+scattered through the desert, and Route 119 has declarative "weather" bg_events
+(`COORD_EVENT_WEATHER_ROUTE119_CYCLE`/`_SUNNY`) handled generically by
+`DoCoordEventWeather()` (`src/coord_event_weather.c`), fired from
+`TryRunCoordEventScript` (`src/field_control_avatar.c:897-905`) every time the
+player steps onto one of those tiles. These fire independent of and *after*
+whatever `OnTransition` set, silently overwriting it the moment the player
+takes a few steps toward the puzzle markers — explaining why the "before"
+fix (which only changed what `OnTransition`/the tier-C script set once) never
+actually became visible. Mossdeep worked because city maps don't have this
+per-tile system at all.
+
+**Real fix:** added `IsQuestWeatherCoordEventSuppressed()`
+(`src/field_specials.c`) — returns true while `FLAG_QUEST_WEATHER_STARTED`
+is set for the current map (Route 111 or Route 119), and hooked it into
+`DoCoordEventWeather()` (`src/coord_event_weather.c`) as an early return.
+This is the single, correct choke point — every per-tile weather trigger on
+both routes funnels through this one function, so one check there
+neutralizes all of them for the duration of the quest (both while the
+anomaly is active and permanently after solving, matching the simpler
+design below), without touching the dozens of individual trigger
+definitions.
+
+**Also redesigned the weather assignments** (user's call, simpler mental
+model — a fixed anomaly/resolved pair per site, not vanilla's positional
+variation):
+- Route 111: anomaly `WEATHER_RAIN_THUNDERSTORM` (unchanged) → resolved
+  `WEATHER_SANDSTORM` (now a flat `setweather` in the tier-C script, not the
+  position-dependent `CheckSetSandstorm` call from the first fix attempt).
+- Route 119: anomaly changed to `WEATHER_DROUGHT` ("overly sunny," was
+  `WEATHER_SANDSTORM`) → resolved `WEATHER_RAIN` (flat constant, was
+  `resetweather`/sunny fallback).
+- Mossdeep: anomaly changed to `WEATHER_SANDSTORM` (was
+  `WEATHER_RAIN_THUNDERSTORM`) → resolved `WEATHER_SUNNY` (unchanged, its
+  real baseline).
+
+Both `Route111_EventScript_CheckWeatherAnomaly` and
+`Route119_EventScript_CheckWeatherAnomaly` (and Mossdeep's equivalent) now
+explicitly set the resolved constant on every `OnTransition` too (not just
+once, in the tier-C script) — so a fresh map re-entry after solving is just
+as correct as the moment right after solving, no reliance on vanilla's
+position-based logic lingering around.
+
+Builds clean with `make modern`. Not yet re-tested live.
+
+### Follow-up #2: Route 111 specifically still bugged (Route 119/Mossdeep untested at this point)
+
+Re-tested: entering Route 111 after the Institute call showed sandstorm
+again, not the intended thunderstorm anomaly — same symptom as before, on
+this one route specifically.
+
+**Real root cause (this time actually the last one):** `DoCoordEventWeather`
+only handles *declarative* coord-events (map.json `"type": "weather"`
+entries with no script attached — this is Route 119's mechanism). Route
+111's `SandstormTrigger`/`SunTrigger` coord-events are the *other* kind —
+regular scripted coord-events (`"script": "Route111_EventScript_
+SandstormTrigger"`), which run via `RunScriptImmediately` directly
+(`src/field_control_avatar.c:906-909`, the branch *before* the
+`DoCoordEventWeather` call), bypassing my suppression check entirely. These
+tiles are scattered throughout the desert (dozens of them, confirmed via
+the map's coord_events list back in the original Route 111 scoping), so the
+player crosses one within a few steps of entering and it silently
+re-asserts sandstorm via its own direct `setweather`/`doweather` call — a
+completely different code path than the one I patched.
+
+**Fix:** guarded the two scripts directly — `Route111_EventScript_
+SunTrigger`/`SandstormTrigger` (`data/maps/Route111/scripts.inc`) now check
+`IsQuestWeatherCoordEventSuppressed` (already built, now also registered as
+a script special in `data/specials.inc`) before touching weather; skips
+straight to the music-fade/state-tracking side effects if suppressed, so
+the desert/route BGM still correctly follows the player's physical position
+even while the quest owns the visual weather. Checked Route 119 and
+Mossdeep for the same "scripted coord-event bypass" pattern — clean, all
+their `setweather` calls are already ones I control.
+
+Builds clean with `make modern`. **Confirmed working live in mGBA** —
+user-verified, this was the actual last piece.
+
+**Aurora Ticket sidequest is complete.** Full chain verified end-to-end:
+catch/defeat Rayquaza → Weather Institute call → all 3 anomaly sites show
+correct anomaly weather and stay that way while active → puzzles solve and
+each site's weather permanently reverts to its correct resolved state
+(including on later re-entry, not just the instant of solving) → second
+Institute call → Steven's Space Center handoff → Aurora Ticket →
+Birth Island's untouched vanilla Deoxys content. ROADMAP.md updated to
+close this out.
+
+**Next up:**
+- Old Sea Map, Mystic Ticket still tabled, no unlock hooks yet.
+- Tilemap Studio pass on the summary screen (only remaining pending visual
+  item — see "Pending Windows-side visual work" further down).
+- Phase 2 (Match Call) — pick back up whenever: finalize gym leader
+  tier-gating flags, confirm the `DEV_NOTES/DESIRED_MATCH_CALL_ROSTERS.md`
+  trims are final, implement the flag-gating prototype on one gym leader.
+- Jirachi: separate from-scratch effort, still needs its own design
+  conversation before implementation.
+- Johto/Heart & Soul thread: still needs the permissions ask before it's
+  more than a research note.
+
+---
+
 ## 2026-07-19 — Aurora Ticket marker placement (Porymap) + Johto/Heart & Soul research thread
 
 **Porymap pass, Windows machine.** Finalized the 9 weather-anomaly marker

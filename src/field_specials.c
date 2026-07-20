@@ -1,6 +1,7 @@
 #include "global.h"
 #include "malloc.h"
 #include "battle.h"
+#include "battle_setup.h"
 #include "battle_tower.h"
 #include "cable_club.h"
 #include "data.h"
@@ -16,6 +17,7 @@
 #include "field_screen_effect.h"
 #include "field_specials.h"
 #include "field_weather.h"
+#include "frontier_util.h"
 #include "graphics.h"
 #include "international_string_util.h"
 #include "item_icon.h"
@@ -65,6 +67,8 @@
 #include "constants/battle_frontier.h"
 #include "constants/weather.h"
 #include "constants/metatile_labels.h"
+#include "constants/opponents.h"
+#include "constants/rematches.h"
 #include "palette.h"
 
 #define TAG_ITEM_ICON 5500
@@ -498,6 +502,214 @@ bool32 ShouldDoStevenTicketCall(void)
     }
 
     return TRUE;
+}
+
+// PG3 quest: Route 111 and Route 119 both have their own continuous,
+// per-tile coord-event-driven weather (desert sandstorm/sun boundaries on
+// 111; the rain/sun "cycle" trigger tiles on 119) that silently fights any
+// one-time OnTransition-level weather override the moment the player takes
+// a step near one of those tiles. While our quest has touched a site (started
+// but not yet solved, or solved -- the puzzle's "before/after" weather is
+// meant to fully replace the vanilla positional variation from then on) this
+// suppresses those competing triggers so our weather actually sticks. See
+// DoCoordEventWeather in src/coord_event_weather.c for the call site.
+bool8 IsQuestWeatherCoordEventSuppressed(void)
+{
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_ROUTE111)
+     && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_ROUTE111))
+        return FlagGet(FLAG_QUEST_WEATHER_STARTED);
+
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_ROUTE119)
+     && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_ROUTE119))
+        return FlagGet(FLAG_QUEST_WEATHER_STARTED);
+
+    return FALSE;
+}
+
+static bool8 IsRoxanneRematchReady(u8 tier);
+
+// PG3: shared infrastructure for gym leader rematch-call notifications
+// (PokeNav "your rematch is ready" calls). Proven out on Roxanne here;
+// add a new GYM_REMATCH_LEADER_* entry as each additional leader gets the
+// same tier-gate treatment. Deliberately var-cheap: every leader shares
+// ONE step counter (a pending call from any leader shares the same wait
+// timer -- there's no real need for independent per-leader pacing here),
+// and each leader's "last acknowledged tier" (0-6, fits in 3 bits) is
+// bit-packed 5-to-a-var across VAR_GYM_REMATCH_LAST_ACK_TIERS_0/_1, room
+// for 10 leaders in 2 vars instead of 1 var apiece.
+enum
+{
+    GYM_REMATCH_LEADER_ROXANNE,
+    GYM_REMATCH_LEADER_COUNT
+};
+
+#define GYM_REMATCH_TIER_BITS     3
+#define GYM_REMATCH_TIER_MASK     ((1 << GYM_REMATCH_TIER_BITS) - 1)
+#define GYM_REMATCH_TIERS_PER_VAR (16 / GYM_REMATCH_TIER_BITS)
+
+static u8 GetLastAcknowledgedRematchTier(u8 leaderId)
+{
+    u8 bitOffset = (leaderId % GYM_REMATCH_TIERS_PER_VAR) * GYM_REMATCH_TIER_BITS;
+    u16 packed = VarGet(VAR_GYM_REMATCH_LAST_ACK_TIERS_0 + (leaderId / GYM_REMATCH_TIERS_PER_VAR));
+
+    return (packed >> bitOffset) & GYM_REMATCH_TIER_MASK;
+}
+
+static void SetLastAcknowledgedRematchTier(u8 leaderId, u8 tier)
+{
+    u8 bitOffset = (leaderId % GYM_REMATCH_TIERS_PER_VAR) * GYM_REMATCH_TIER_BITS;
+    u16 *var = GetVarPointer(VAR_GYM_REMATCH_LAST_ACK_TIERS_0 + (leaderId / GYM_REMATCH_TIERS_PER_VAR));
+
+    *var = (*var & ~(GYM_REMATCH_TIER_MASK << bitOffset)) | ((tier & GYM_REMATCH_TIER_MASK) << bitOffset);
+}
+
+// PG3 Phase 2 prototype: deterministic gym leader rematch-tier gating,
+// replacing vanilla's RNG-based ShouldTryRematchBattle/UpdateGymLeaderRematch
+// eligibility roll -- for Roxanne only, to prove the mechanism out before
+// scaling to the other 7 gym leaders + Elite Four. Neither of those vanilla
+// systems is touched; this is a fully independent, parallel gate consulted
+// directly from RustboroCity_Gym's own script. Returns the highest
+// TRAINER_ROXANNE_N tier index (2-5) currently unlocked, or 0 if none yet.
+// Tier 6 is a prototype of reusing an existing roster at a higher level
+// instead of a dedicated trainer entry (see gTrainerPartyLevelBonus) --
+// it deliberately needs no script changes, since 6 satisfies the existing
+// ">= 5" gate check the same as a real tier 6 would.
+u8 GetRoxanneAllowedRematchTier(void)
+{
+    u8 i, symbolCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        symbolCount += count;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        // Once every earlier tier is cleared, GetRematchTrainerIdFromTable's
+        // own "already beaten at max stage" fallback keeps resolving to
+        // TRAINER_ROXANNE_5 -- so reusing her roster here costs zero new
+        // trainer data, just a level bump applied at battle setup.
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (symbolCount >= 7)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else if (FlagGet(FLAG_BADGE04_GET))
+        tier = 2;
+    else
+        tier = 0;
+
+    // trainerbattle_rematch_double still checks vanilla's own RNG-driven
+    // "wants a rematch" bookkeeping (IsTrainerReadyForRematch) before it'll
+    // actually start a battle, even though this gate replaces the RNG check
+    // for deciding whether to route here at all -- force that bookkeeping in
+    // sync so the battle doesn't silently no-op once the tier gate opens.
+    // Only do this when a rematch is genuinely available right now (not just
+    // "some milestone has been met"): this same sync also drives the PokeNav
+    // list's blinking pokeball indicator via vanilla's own "first undefeated
+    // trainer in the sequence" logic, which doesn't know about our tier gate
+    // at all -- syncing unconditionally would mark her "ready" as soon as
+    // *any* earlier tier is unlocked, even if the next undefeated trainer in
+    // line actually needs a higher tier than the player currently has.
+    if (IsRoxanneRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_ROXANNE);
+
+    return tier;
+}
+
+// Mirrors RustboroCity_Gym_EventScript_Roxanne's own gate chain in C: is
+// there an undefeated TRAINER_ROXANNE_N whose required tier (N) is actually
+// covered by the player's current tier? This is the single source of truth
+// for "would talking to her right now start a battle" -- used both to guard
+// the vanilla rematch-ready sync above and to drive the PokeNav call below,
+// so neither can promise a rematch the gym itself wouldn't actually offer.
+static bool8 IsRoxanneRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_2))
+        return tier >= 2;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_3))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_4))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_5))
+        return tier >= 5;
+    return tier >= 6;
+}
+
+// Which TRAINER_ROXANNE_N tier is the next one actually up for a rematch,
+// regardless of how far the player's milestone tier has advanced -- since
+// rematches can't be skipped (see IsRoxanneRematchReady), this is what the
+// PokeNav call should describe, not GetRoxanneAllowedRematchTier()'s value.
+u8 GetRoxanneNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_2))
+        return 2;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_3))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_4))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_ROXANNE_5))
+        return 5;
+    return 6;
+}
+
+// PG3: proactive "your rematch is ready" PokeNav call, separate from vanilla's
+// FLAG_ENABLE_ROXANNE_FIRST_CALL registration call above. Fires once per
+// distinct fight in the chain (2 through 6), not just once per overall
+// "readiness window" -- tracks the last TRAINER_ROXANNE_N tier actually
+// called about (GetLastAcknowledgedRematchTier) against
+// GetRoxanneNextRematchTier()'s current value, so beating one rematch
+// immediately re-arms the call for the next one, as long as the player's
+// milestone tier already covers it (still gated by IsRoxanneRematchReady,
+// so it can never promise a fight that isn't actually reachable yet).
+bool32 ShouldDoRoxanneRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsRoxanneRematchReady(GetRoxanneAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetRoxanneNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_ROXANNE))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+// Called by RustboroCity_Gym_EventScript_RoxanneRematchCall's finish block
+// with VAR_0x8008 holding the tier it just announced (bit-packing can't be
+// done from script, so this is a plain special rather than a copyvar).
+void SetRoxanneLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_ROXANNE, VarGet(VAR_0x8008));
 }
 
 bool32 ShouldDoWallyCall(void)
