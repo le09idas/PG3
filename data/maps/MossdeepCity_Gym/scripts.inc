@@ -50,8 +50,26 @@ MossdeepCity_Gym_EventScript_SetSwitch4Metatiles::
 
 MossdeepCity_Gym_EventScript_TateAndLiza::
 	trainerbattle_double TRAINER_TATE_AND_LIZA_1, MossdeepCity_Gym_Text_TateAndLizaIntro, MossdeepCity_Gym_Text_TateAndLizaDefeat, MossdeepCity_Gym_Text_TateAndLizaNeedTwoMons, MossdeepCity_Gym_EventScript_TateAndLizaDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, MossdeepCity_Gym_EventScript_TateAndLizaRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne, but starting at tier 3 -- see
+	@ GetTateAndLizaAllowedRematchTier in src/field_specials.c. Unlike the
+	@ other leaders, Tate & Liza's rematch stays a double battle -- they're
+	@ twins who always fight as a pair, not a rematch-only vanilla quirk.
+	specialvar VAR_RESULT, GetTateAndLizaAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, MossdeepCity_Gym_EventScript_TateAndLizaNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_TATE_AND_LIZA_2, MossdeepCity_Gym_EventScript_TateAndLizaCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_TATE_AND_LIZA_3, MossdeepCity_Gym_EventScript_TateAndLizaCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_TATE_AND_LIZA_4, MossdeepCity_Gym_EventScript_TateAndLizaCheckRematchGate
+	setvar VAR_0x8008, 6
+	goto_if_not_defeated TRAINER_TATE_AND_LIZA_5, MossdeepCity_Gym_EventScript_TateAndLizaCheckRematchGate
+	setvar VAR_0x8008, 6
+MossdeepCity_Gym_EventScript_TateAndLizaCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, MossdeepCity_Gym_EventScript_TateAndLizaRematch
+MossdeepCity_Gym_EventScript_TateAndLizaNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_CALM_MIND, MossdeepCity_Gym_EventScript_GiveCalmMind2
 	msgbox MossdeepCity_Gym_Text_TateAndLizaPostBattle, MSGBOX_DEFAULT
 	release
@@ -107,6 +125,38 @@ MossdeepCity_Gym_EventScript_GiveCalmMind::
 MossdeepCity_Gym_EventScript_TateAndLizaRematch::
 	trainerbattle_rematch_double TRAINER_TATE_AND_LIZA_1, MossdeepCity_Gym_Text_TateAndLizaPreRematch, MossdeepCity_Gym_Text_TateAndLizaRematchDefeat, MossdeepCity_Gym_Text_TateAndLizaRematchNeedTwoMons
 	msgbox MossdeepCity_Gym_Text_TateAndLizaPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetTateAndLizaNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 3, MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier5
+	goto MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier6
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier3::
+	pokenavcall MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier3
+	goto MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Finish
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier4::
+	pokenavcall MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier4
+	goto MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Finish
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier5::
+	pokenavcall MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier5
+	goto MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Finish
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Tier6::
+	pokenavcall MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier6
+
+MossdeepCity_Gym_EventScript_TateAndLizaRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetTateAndLizaLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 @ All the below switch scripts are leftover from RS and are functionally unused
@@ -588,6 +638,46 @@ MossdeepCity_Gym_Text_ExplainCalmMind:
 MossdeepCity_Gym_Text_RegisteredTateAndLiza:
 	.string "Registered GYM LEADERS TATE & LIZA\n"
 	.string "in the POKéNAV.$"
+
+MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "TATE: {PLAYER}…\n"
+	.string "LIZA: {PLAYER}…\p"
+	.string "TATE: VICTORY ROAD…\n"
+	.string "LIZA: You have overcome it…\p"
+	.string "TATE: Come to the GYM…\n"
+	.string "LIZA: We are waiting…$"
+
+MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "TATE: {PLAYER}…\n"
+	.string "LIZA: {PLAYER}…\p"
+	.string "TATE: The CHAMPION…\n"
+	.string "LIZA: We did not foresee this…\p"
+	.string "TATE: Come to the GYM…\n"
+	.string "LIZA: Face us again…$"
+
+MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "TATE: {PLAYER}…\n"
+	.string "LIZA: {PLAYER}…\p"
+	.string "TATE: BATTLE FRONTIER SYMBOLS…\n"
+	.string "LIZA: We sense your growth…\p"
+	.string "TATE: We too have grown…\n"
+	.string "LIZA: Come see for yourself…$"
+
+MossdeepCity_Gym_Text_TateAndLizaRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "TATE: {PLAYER}…\n"
+	.string "LIZA: {PLAYER}…\p"
+	.string "TATE: GOLD, at every FACILITY…\n"
+	.string "LIZA: A truly rare feat…\p"
+	.string "TATE: We have given our all…\n"
+	.string "LIZA: Come feel it together…$"
 
 MossdeepCity_Gym_Text_TateAndLizaPostBattle:
 	.string "TATE: Looks like the bond between you\n"

@@ -18,8 +18,24 @@ FortreeCity_Gym_EventScript_InitRotatingGates::
 
 FortreeCity_Gym_EventScript_Winona::
 	trainerbattle_single TRAINER_WINONA_1, FortreeCity_Gym_Text_WinonaIntro, FortreeCity_Gym_Text_WinonaDefeat, FortreeCity_Gym_EventScript_WinonaDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, FortreeCity_Gym_EventScript_WinonaRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne, but starting at tier 3 -- see
+	@ GetWinonaAllowedRematchTier in src/field_specials.c.
+	specialvar VAR_RESULT, GetWinonaAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, FortreeCity_Gym_EventScript_WinonaNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_WINONA_2, FortreeCity_Gym_EventScript_WinonaCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_WINONA_3, FortreeCity_Gym_EventScript_WinonaCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_WINONA_4, FortreeCity_Gym_EventScript_WinonaCheckRematchGate
+	setvar VAR_0x8008, 6
+	goto_if_not_defeated TRAINER_WINONA_5, FortreeCity_Gym_EventScript_WinonaCheckRematchGate
+	setvar VAR_0x8008, 6
+FortreeCity_Gym_EventScript_WinonaCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, FortreeCity_Gym_EventScript_WinonaRematch
+FortreeCity_Gym_EventScript_WinonaNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_AERIAL_ACE, FortreeCity_Gym_EventScript_GiveAerialAce2
 	msgbox FortreeCity_Gym_Text_WinonaPostBattle, MSGBOX_DEFAULT
 	release
@@ -64,8 +80,40 @@ FortreeCity_Gym_EventScript_GiveAerialAce::
 	return
 
 FortreeCity_Gym_EventScript_WinonaRematch::
-	trainerbattle_rematch_double TRAINER_WINONA_1, FortreeCity_Gym_Text_WinonaPreRematch, FortreeCity_Gym_Text_WinonaRematchDefeat, FortreeCity_Gym_Text_WinonaRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_WINONA_1, FortreeCity_Gym_Text_WinonaPreRematch, FortreeCity_Gym_Text_WinonaRematchDefeat
 	msgbox FortreeCity_Gym_Text_WinonaPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+FortreeCity_Gym_EventScript_WinonaRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetWinonaNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 3, FortreeCity_Gym_EventScript_WinonaRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, FortreeCity_Gym_EventScript_WinonaRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, FortreeCity_Gym_EventScript_WinonaRematchCall_Tier5
+	goto FortreeCity_Gym_EventScript_WinonaRematchCall_Tier6
+
+FortreeCity_Gym_EventScript_WinonaRematchCall_Tier3::
+	pokenavcall FortreeCity_Gym_Text_WinonaRematchCall_Tier3
+	goto FortreeCity_Gym_EventScript_WinonaRematchCall_Finish
+
+FortreeCity_Gym_EventScript_WinonaRematchCall_Tier4::
+	pokenavcall FortreeCity_Gym_Text_WinonaRematchCall_Tier4
+	goto FortreeCity_Gym_EventScript_WinonaRematchCall_Finish
+
+FortreeCity_Gym_EventScript_WinonaRematchCall_Tier5::
+	pokenavcall FortreeCity_Gym_Text_WinonaRematchCall_Tier5
+	goto FortreeCity_Gym_EventScript_WinonaRematchCall_Finish
+
+FortreeCity_Gym_EventScript_WinonaRematchCall_Tier6::
+	pokenavcall FortreeCity_Gym_Text_WinonaRematchCall_Tier6
+
+FortreeCity_Gym_EventScript_WinonaRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetWinonaLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 FortreeCity_Gym_EventScript_Jared::
@@ -271,6 +319,42 @@ FortreeCity_Gym_Text_RegisteredWinona:
 	.string "Registered GYM LEADER WINONA\n"
 	.string "in the POKéNAV.$"
 
+FortreeCity_Gym_Text_WinonaRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WINONA: Hello, {PLAYER}. WINONA here.\p"
+	.string "VICTORY ROAD tested your resolve, I'm\n"
+	.string "sure. It's a fitting climb.\p"
+	.string "Please, come to the GYM -- I'd like to\n"
+	.string "see how you've risen.$"
+
+FortreeCity_Gym_Text_WinonaRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WINONA: Hello, {PLAYER}. WINONA here.\p"
+	.string "CHAMPION. What a height to have\n"
+	.string "reached since we last battled.\p"
+	.string "Come to the GYM -- I would be honored\n"
+	.string "to face you again.$"
+
+FortreeCity_Gym_Text_WinonaRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WINONA: Hello, {PLAYER}. WINONA here.\p"
+	.string "Word of your BATTLE FRONTIER SYMBOLS\n"
+	.string "has reached even FORTREE.\p"
+	.string "I've been striving for new heights\n"
+	.string "myself. Come see how far I've flown!$"
+
+FortreeCity_Gym_Text_WinonaRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WINONA: Hello, {PLAYER}. WINONA here.\p"
+	.string "GOLD at every FRONTIER FACILITY. That\n"
+	.string "is a truly rarefied height.\p"
+	.string "I have carried my team as high as\n"
+	.string "they can go. Come test their limit!$"
+
 FortreeCity_Gym_Text_WinonaPostBattle:
 	.string "Though I fell to you, I will remain\n"
 	.string "devoted to BIRD POKéMON.$"
@@ -303,16 +387,3 @@ FortreeCity_Gym_Text_WinonaPostRematch:
 	.string "yet again.\p"
 	.string "I am convinced of it!$"
 
-FortreeCity_Gym_Text_WinonaRematchNeedTwoMons:
-	.string "WINONA: We humans can never escape\n"
-	.string "gravity's pull on the ground.\p"
-	.string "But by striving for excellence,\n"
-	.string "we have the power to soar!\p"
-	.string "You have scaled the pinnacle as\n"
-	.string "the reigning CHAMPION.\p"
-	.string "Please, allow me to see your power\n"
-	.string "at full flight!\p"
-	.string "Oh, no… Do you have but one\n"
-	.string "POKéMON with you?\p"
-	.string "Please return with two POKéMON\n"
-	.string "at the very least.$"

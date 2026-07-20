@@ -75,8 +75,24 @@ MauvilleCity_Gym_EventScript_DeactivatePuzzle::
 
 MauvilleCity_Gym_EventScript_Wattson::
 	trainerbattle_single TRAINER_WATTSON_1, MauvilleCity_Gym_Text_WattsonIntro, MauvilleCity_Gym_Text_WattsonDefeat, MauvilleCity_Gym_EventScript_WattsonDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, MauvilleCity_Gym_EventScript_WattsonRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne -- see GetWattsonAllowedRematchTier
+	@ in src/field_specials.c.
+	specialvar VAR_RESULT, GetWattsonAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, MauvilleCity_Gym_EventScript_WattsonNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 2
+	goto_if_not_defeated TRAINER_WATTSON_2, MauvilleCity_Gym_EventScript_WattsonCheckRematchGate
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_WATTSON_3, MauvilleCity_Gym_EventScript_WattsonCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_WATTSON_4, MauvilleCity_Gym_EventScript_WattsonCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_WATTSON_5, MauvilleCity_Gym_EventScript_WattsonCheckRematchGate
+	setvar VAR_0x8008, 6
+MauvilleCity_Gym_EventScript_WattsonCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, MauvilleCity_Gym_EventScript_WattsonRematch
+MauvilleCity_Gym_EventScript_WattsonNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_SHOCK_WAVE, MauvilleCity_Gym_EventScript_GiveShockWave2
 	goto_if_eq VAR_NEW_MAUVILLE_STATE, 2, MauvilleCity_Gym_EventScript_CompletedNewMauville
 	msgbox MauvilleCity_Gym_Text_WattsonPostBattle, MSGBOX_DEFAULT
@@ -132,8 +148,45 @@ MauvilleCity_Gym_EventScript_CompletedNewMauville::
 	end
 
 MauvilleCity_Gym_EventScript_WattsonRematch::
-	trainerbattle_rematch_double TRAINER_WATTSON_1, MauvilleCity_Gym_Text_WattsonPreRematch, MauvilleCity_Gym_Text_WattsonRematchDefeat, MauvilleCity_Gym_Text_WattsonRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_WATTSON_1, MauvilleCity_Gym_Text_WattsonPreRematch, MauvilleCity_Gym_Text_WattsonRematchDefeat
 	msgbox MauvilleCity_Gym_Text_WattsonPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetWattsonNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 2, MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier2
+	goto_if_eq VAR_RESULT, 3, MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier5
+	goto MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier6
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier2::
+	pokenavcall MauvilleCity_Gym_Text_WattsonRematchCall_Tier2
+	goto MauvilleCity_Gym_EventScript_WattsonRematchCall_Finish
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier3::
+	pokenavcall MauvilleCity_Gym_Text_WattsonRematchCall_Tier3
+	goto MauvilleCity_Gym_EventScript_WattsonRematchCall_Finish
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier4::
+	pokenavcall MauvilleCity_Gym_Text_WattsonRematchCall_Tier4
+	goto MauvilleCity_Gym_EventScript_WattsonRematchCall_Finish
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier5::
+	pokenavcall MauvilleCity_Gym_Text_WattsonRematchCall_Tier5
+	goto MauvilleCity_Gym_EventScript_WattsonRematchCall_Finish
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Tier6::
+	pokenavcall MauvilleCity_Gym_Text_WattsonRematchCall_Tier6
+
+MauvilleCity_Gym_EventScript_WattsonRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetWattsonLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 MauvilleCity_Gym_EventScript_Switch1::
@@ -373,6 +426,50 @@ MauvilleCity_Gym_Text_RegisteredWattson:
 	.string "Registered GYM LEADER WATTSON\n"
 	.string "in the POKéNAV.$"
 
+MauvilleCity_Gym_Text_WattsonRematchCall_Tier2:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WATTSON: Ah-ha, {PLAYER}! WATTSON here!\p"
+	.string "I hear you've given FLANNERY a real\n"
+	.string "shock! Wahahahaha!\p"
+	.string "Come recharge with me at the GYM!$"
+
+MauvilleCity_Gym_Text_WattsonRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WATTSON: Ah-ha, {PLAYER}! WATTSON here!\p"
+	.string "VICTORY ROAD didn't short you out one\n"
+	.string "bit, from what I hear!\p"
+	.string "Come see me -- I've got quite the\n"
+	.string "charge built up myself!$"
+
+MauvilleCity_Gym_Text_WattsonRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WATTSON: Ah-ha, {PLAYER}! WATTSON here!\p"
+	.string "The CHAMPION! Wahahahaha! I never\n"
+	.string "would've guessed it back at the GYM!\p"
+	.string "Come give this old sparkplug\n"
+	.string "one more go!$"
+
+MauvilleCity_Gym_Text_WattsonRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WATTSON: Ah-ha, {PLAYER}! WATTSON here!\p"
+	.string "BATTLE FRONTIER SYMBOLS, is it? Quite\n"
+	.string "the collection you're building!\p"
+	.string "I've tuned up my own team to match.\n"
+	.string "Come see for yourself!$"
+
+MauvilleCity_Gym_Text_WattsonRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "WATTSON: Ah-ha, {PLAYER}! WATTSON here!\p"
+	.string "GOLD at every FRONTIER FACILITY!\n"
+	.string "Wahahahaha! Astonishing!\p"
+	.string "I've pushed my team to their absolute\n"
+	.string "limit. Come feel the full charge!$"
+
 MauvilleCity_Gym_Text_WattsonPostBattle:
 	.string "I swell with optimism, seeing a promising\n"
 	.string "young TRAINER like you!$"
@@ -408,14 +505,4 @@ MauvilleCity_Gym_Text_WattsonPostRematch:
 	.string "gladly accept your challenge.\p"
 	.string "So, come back again sometime,\n"
 	.string "won't you?$"
-
-MauvilleCity_Gym_Text_WattsonRematchNeedTwoMons:
-	.string "WATTSON: Ah-ha! Here at last!\n"
-	.string "I know what you want.\l"
-	.string "You want to battle my POKéMON!\p"
-	.string "Wahahahaha!\p"
-	.string "Oops! Wait!\n"
-	.string "You've only one POKéMON with you!\p"
-	.string "Come see me with two or more\n"
-	.string "POKéMON, all right?$"
 

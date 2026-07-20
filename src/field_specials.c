@@ -527,6 +527,13 @@ bool8 IsQuestWeatherCoordEventSuppressed(void)
 }
 
 static bool8 IsRoxanneRematchReady(u8 tier);
+static bool8 IsBrawlyRematchReady(u8 tier);
+static bool8 IsWattsonRematchReady(u8 tier);
+static bool8 IsFlanneryRematchReady(u8 tier);
+static bool8 IsNormanRematchReady(u8 tier);
+static bool8 IsWinonaRematchReady(u8 tier);
+static bool8 IsTateAndLizaRematchReady(u8 tier);
+static bool8 IsJuanRematchReady(u8 tier);
 
 // PG3: shared infrastructure for gym leader rematch-call notifications
 // (PokeNav "your rematch is ready" calls). Proven out on Roxanne here;
@@ -540,6 +547,13 @@ static bool8 IsRoxanneRematchReady(u8 tier);
 enum
 {
     GYM_REMATCH_LEADER_ROXANNE,
+    GYM_REMATCH_LEADER_BRAWLY,
+    GYM_REMATCH_LEADER_WATTSON,
+    GYM_REMATCH_LEADER_FLANNERY,
+    GYM_REMATCH_LEADER_NORMAN,
+    GYM_REMATCH_LEADER_WINONA,
+    GYM_REMATCH_LEADER_TATE_AND_LIZA,
+    GYM_REMATCH_LEADER_JUAN,
     GYM_REMATCH_LEADER_COUNT
 };
 
@@ -576,14 +590,15 @@ static void SetLastAcknowledgedRematchTier(u8 leaderId, u8 tier)
 // ">= 5" gate check the same as a real tier 6 would.
 u8 GetRoxanneAllowedRematchTier(void)
 {
-    u8 i, symbolCount = 0, goldCount = 0, tier;
+    u8 i, silverCount = 0, goldCount = 0, tier;
 
     gTrainerPartyLevelBonus = 0;
 
     for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
     {
         u8 count = GetPlayerSymbolCountForFacility(i);
-        symbolCount += count;
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
         if (count >= 2) // has the Gold symbol for this facility
             goldCount++;
     }
@@ -597,7 +612,7 @@ u8 GetRoxanneAllowedRematchTier(void)
         gTrainerPartyLevelBonus = 10;
         tier = 6;
     }
-    else if (symbolCount >= 7)
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
         tier = 5;
     else if (FlagGet(FLAG_SYS_GAME_CLEAR))
         tier = 4;
@@ -710,6 +725,727 @@ bool32 ShouldDoRoxanneRematchCall(void)
 void SetRoxanneLastAcknowledgedRematchTier(void)
 {
     SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_ROXANNE, VarGet(VAR_0x8008));
+}
+
+// PG3 Phase 2: Brawly gets the same milestone mapping as Roxanne (badge 4 /
+// Victory Road / E4 / 7+ symbols / all-Gold), so this is a direct copy of
+// GetRoxanneAllowedRematchTier() with TRAINER_BRAWLY_* substituted in --
+// see that function's comments for the full rationale.
+u8 GetBrawlyAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else if (FlagGet(FLAG_BADGE04_GET))
+        tier = 2;
+    else
+        tier = 0;
+
+    if (IsBrawlyRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_BRAWLY);
+
+    return tier;
+}
+
+static bool8 IsBrawlyRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_2))
+        return tier >= 2;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_3))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_4))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_5))
+        return tier >= 5;
+    return tier >= 6;
+}
+
+u8 GetBrawlyNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_2))
+        return 2;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_3))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_4))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_BRAWLY_5))
+        return 5;
+    return 6;
+}
+
+bool32 ShouldDoBrawlyRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsBrawlyRematchReady(GetBrawlyAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetBrawlyNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_BRAWLY))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetBrawlyLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_BRAWLY, VarGet(VAR_0x8008));
+}
+
+// PG3 Phase 2: Wattson has no dedicated tier-2 quest yet (user's call,
+// 2026-07-19) -- uses the same badge-4 milestone as everyone else for now,
+// otherwise a direct copy of GetRoxanneAllowedRematchTier().
+u8 GetWattsonAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else if (FlagGet(FLAG_BADGE04_GET))
+        tier = 2;
+    else
+        tier = 0;
+
+    if (IsWattsonRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_WATTSON);
+
+    return tier;
+}
+
+static bool8 IsWattsonRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_2))
+        return tier >= 2;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_3))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_4))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_5))
+        return tier >= 5;
+    return tier >= 6;
+}
+
+u8 GetWattsonNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_2))
+        return 2;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_3))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_4))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_WATTSON_5))
+        return 5;
+    return 6;
+}
+
+bool32 ShouldDoWattsonRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsWattsonRematchReady(GetWattsonAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetWattsonNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_WATTSON))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetWattsonLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_WATTSON, VarGet(VAR_0x8008));
+}
+
+// PG3 Phase 2: Flannery/Norman/Winona/Tate & Liza/Juan share a "2,3,4,5"
+// milestone group (no tier-2 stage -- Flannery herself is what unlocks
+// everyone else's tier 2, so this group's own chain starts at tier 3,
+// Victory Road). Otherwise a direct copy of the "1,2,3,4,5" leaders'
+// pattern: _2 is the first rematch (tier 3), _5 is the last real roster
+// (tier 5), tier 6 (all-Gold) reuses _5's data at +10 levels.
+
+u8 GetFlanneryAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else
+        tier = 0;
+
+    if (IsFlanneryRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_FLANNERY);
+
+    return tier;
+}
+
+static bool8 IsFlanneryRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_2))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_3))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_4))
+        return tier >= 5;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_5))
+        return tier >= 6;
+    return tier >= 6;
+}
+
+u8 GetFlanneryNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_2))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_3))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_4))
+        return 5;
+    if (!HasTrainerBeenFought(TRAINER_FLANNERY_5))
+        return 6;
+    return 6;
+}
+
+bool32 ShouldDoFlanneryRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsFlanneryRematchReady(GetFlanneryAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetFlanneryNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_FLANNERY))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetFlanneryLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_FLANNERY, VarGet(VAR_0x8008));
+}
+
+u8 GetNormanAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else
+        tier = 0;
+
+    if (IsNormanRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_NORMAN);
+
+    return tier;
+}
+
+static bool8 IsNormanRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_2))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_3))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_4))
+        return tier >= 5;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_5))
+        return tier >= 6;
+    return tier >= 6;
+}
+
+u8 GetNormanNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_2))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_3))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_4))
+        return 5;
+    if (!HasTrainerBeenFought(TRAINER_NORMAN_5))
+        return 6;
+    return 6;
+}
+
+bool32 ShouldDoNormanRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsNormanRematchReady(GetNormanAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetNormanNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_NORMAN))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetNormanLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_NORMAN, VarGet(VAR_0x8008));
+}
+
+u8 GetWinonaAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else
+        tier = 0;
+
+    if (IsWinonaRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_WINONA);
+
+    return tier;
+}
+
+static bool8 IsWinonaRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_2))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_3))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_4))
+        return tier >= 5;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_5))
+        return tier >= 6;
+    return tier >= 6;
+}
+
+u8 GetWinonaNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_WINONA_2))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_3))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_4))
+        return 5;
+    if (!HasTrainerBeenFought(TRAINER_WINONA_5))
+        return 6;
+    return 6;
+}
+
+bool32 ShouldDoWinonaRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsWinonaRematchReady(GetWinonaAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetWinonaNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_WINONA))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetWinonaLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_WINONA, VarGet(VAR_0x8008));
+}
+
+u8 GetTateAndLizaAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else
+        tier = 0;
+
+    if (IsTateAndLizaRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_TATE_AND_LIZA);
+
+    return tier;
+}
+
+static bool8 IsTateAndLizaRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_2))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_3))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_4))
+        return tier >= 5;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_5))
+        return tier >= 6;
+    return tier >= 6;
+}
+
+u8 GetTateAndLizaNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_2))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_3))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_4))
+        return 5;
+    if (!HasTrainerBeenFought(TRAINER_TATE_AND_LIZA_5))
+        return 6;
+    return 6;
+}
+
+bool32 ShouldDoTateAndLizaRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsTateAndLizaRematchReady(GetTateAndLizaAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetTateAndLizaNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_TATE_AND_LIZA))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetTateAndLizaLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_TATE_AND_LIZA, VarGet(VAR_0x8008));
+}
+
+u8 GetJuanAllowedRematchTier(void)
+{
+    u8 i, silverCount = 0, goldCount = 0, tier;
+
+    gTrainerPartyLevelBonus = 0;
+
+    for (i = 0; i < NUM_FRONTIER_FACILITIES; i++)
+    {
+        u8 count = GetPlayerSymbolCountForFacility(i);
+        if (count >= 1) // has at least the Silver symbol for this facility
+            silverCount++;
+        if (count >= 2) // has the Gold symbol for this facility
+            goldCount++;
+    }
+
+    if (goldCount >= NUM_FRONTIER_FACILITIES)
+    {
+        gTrainerPartyLevelBonus = 10;
+        tier = 6;
+    }
+    else if (silverCount >= NUM_FRONTIER_FACILITIES)
+        tier = 5;
+    else if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        tier = 4;
+    else if (FlagGet(FLAG_BADGE08_GET) || FlagGet(FLAG_DEFEATED_WALLY_VICTORY_ROAD))
+        tier = 3;
+    else
+        tier = 0;
+
+    if (IsJuanRematchReady(tier))
+        UpdateRematchIfDefeated(REMATCH_JUAN);
+
+    return tier;
+}
+
+static bool8 IsJuanRematchReady(u8 tier)
+{
+    if (tier == 0)
+        return FALSE;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_2))
+        return tier >= 3;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_3))
+        return tier >= 4;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_4))
+        return tier >= 5;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_5))
+        return tier >= 6;
+    return tier >= 6;
+}
+
+u8 GetJuanNextRematchTier(void)
+{
+    if (!HasTrainerBeenFought(TRAINER_JUAN_2))
+        return 3;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_3))
+        return 4;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_4))
+        return 5;
+    if (!HasTrainerBeenFought(TRAINER_JUAN_5))
+        return 6;
+    return 6;
+}
+
+bool32 ShouldDoJuanRematchCall(void)
+{
+    u8 nextFightTier;
+
+    switch (gMapHeader.mapType)
+    {
+    case MAP_TYPE_TOWN:
+    case MAP_TYPE_CITY:
+    case MAP_TYPE_ROUTE:
+    case MAP_TYPE_OCEAN_ROUTE:
+        break;
+    default:
+        return FALSE;
+    }
+
+    if (!IsJuanRematchReady(GetJuanAllowedRematchTier()))
+    {
+        *GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER) = 0;
+        return FALSE;
+    }
+
+    nextFightTier = GetJuanNextRematchTier();
+    if (nextFightTier <= GetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_JUAN))
+        return FALSE;
+
+    if (++(*GetVarPointer(VAR_GYM_REMATCH_CALL_STEP_COUNTER)) < 50)
+        return FALSE;
+
+    return TRUE;
+}
+
+void SetJuanLastAcknowledgedRematchTier(void)
+{
+    SetLastAcknowledgedRematchTier(GYM_REMATCH_LEADER_JUAN, VarGet(VAR_0x8008));
+}
+
+// Petalburg Gym moves Norman to the front of the room once a rematch is
+// pending (originally driven by vanilla's IsTrainerReadyForRematch); this
+// wrapper lets that positioning logic use the real tier gate instead, so
+// he doesn't walk up to greet the player before a rematch is genuinely
+// unlocked.
+bool8 IsNormanRematchPending(void)
+{
+    return IsNormanRematchReady(GetNormanAllowedRematchTier());
 }
 
 bool32 ShouldDoWallyCall(void)

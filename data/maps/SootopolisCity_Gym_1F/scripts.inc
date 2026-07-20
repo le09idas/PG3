@@ -81,8 +81,24 @@ SootopolisCity_Gym_1F_Movement_FallThroughIce:
 
 SootopolisCity_Gym_1F_EventScript_Juan::
 	trainerbattle_single TRAINER_JUAN_1, SootopolisCity_Gym_1F_Text_JuanIntro, SootopolisCity_Gym_1F_Text_JuanDefeat, SootopolisCity_Gym_1F_EventScript_JuanDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, SootopolisCity_Gym_1F_EventScript_JuanRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne, but starting at tier 3 -- see
+	@ GetJuanAllowedRematchTier in src/field_specials.c.
+	specialvar VAR_RESULT, GetJuanAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, SootopolisCity_Gym_1F_EventScript_JuanNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_JUAN_2, SootopolisCity_Gym_1F_EventScript_JuanCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_JUAN_3, SootopolisCity_Gym_1F_EventScript_JuanCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_JUAN_4, SootopolisCity_Gym_1F_EventScript_JuanCheckRematchGate
+	setvar VAR_0x8008, 6
+	goto_if_not_defeated TRAINER_JUAN_5, SootopolisCity_Gym_1F_EventScript_JuanCheckRematchGate
+	setvar VAR_0x8008, 6
+SootopolisCity_Gym_1F_EventScript_JuanCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, SootopolisCity_Gym_1F_EventScript_JuanRematch
+SootopolisCity_Gym_1F_EventScript_JuanNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_WATER_PULSE, SootopolisCity_Gym_1F_EventScript_GiveWaterPulse2
 	goto_if_unset FLAG_BADGE06_GET, SootopolisCity_Gym_1F_EventScript_GoGetFortreeBadge
 	msgbox SootopolisCity_Gym_1F_Text_JuanPostBattle, MSGBOX_DEFAULT
@@ -136,8 +152,40 @@ SootopolisCity_Gym_1F_EventScript_GoGetFortreeBadge::
 	end
 
 SootopolisCity_Gym_1F_EventScript_JuanRematch::
-	trainerbattle_rematch_double TRAINER_JUAN_1, SootopolisCity_Gym_1F_Text_JuanPreRematch, SootopolisCity_Gym_1F_Text_JuanRematchDefeat, SootopolisCity_Gym_1F_Text_JuanRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_JUAN_1, SootopolisCity_Gym_1F_Text_JuanPreRematch, SootopolisCity_Gym_1F_Text_JuanRematchDefeat
 	msgbox SootopolisCity_Gym_1F_Text_JuanPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetJuanNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 3, SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier5
+	goto SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier6
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier3::
+	pokenavcall SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier3
+	goto SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Finish
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier4::
+	pokenavcall SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier4
+	goto SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Finish
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier5::
+	pokenavcall SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier5
+	goto SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Finish
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Tier6::
+	pokenavcall SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier6
+
+SootopolisCity_Gym_1F_EventScript_JuanRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetJuanLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 SootopolisCity_Gym_1F_EventScript_GymGuide::
@@ -257,6 +305,47 @@ SootopolisCity_Gym_1F_Text_RegisteredJuan:
 	.string "Registered GYM LEADER JUAN\n"
 	.string "in the POKéNAV.$"
 
+SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "JUAN: Ah, {PLAYER}, my friend! It is\n"
+	.string "JUAN.\p"
+	.string "VICTORY ROAD! What a magnificent\n"
+	.string "typhoon you must have weathered.\p"
+	.string "Please, come dance with me at the\n"
+	.string "GYM once more!$"
+
+SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "JUAN: Ah, {PLAYER}, my friend! It is\n"
+	.string "JUAN.\p"
+	.string "The CHAMPION! Magnifique! I had not\n"
+	.string "dared to imagine such a thing.\p"
+	.string "Come, let us dance again -- this time,\n"
+	.string "as equals!$"
+
+SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "JUAN: Ah, {PLAYER}, my friend! It is\n"
+	.string "JUAN.\p"
+	.string "Word of your BATTLE FRONTIER SYMBOLS\n"
+	.string "has reached even SOOTOPOLIS.\p"
+	.string "I too have refined my art since we\n"
+	.string "last met. Come, see for yourself!$"
+
+SootopolisCity_Gym_1F_Text_JuanRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "JUAN: Ah, {PLAYER}, my friend! It is\n"
+	.string "JUAN.\p"
+	.string "GOLD, at every FRONTIER FACILITY!\n"
+	.string "What a magnificent typhoon you are.\p"
+	.string "I have polished my own dance to its\n"
+	.string "final form. Come, be my partner once\l"
+	.string "more!$"
+
 SootopolisCity_Gym_1F_Text_JuanPostBattle:
 	.string "The TRAINERS who have gathered all\n"
 	.string "the GYM BADGES of HOENN should make\l"
@@ -304,16 +393,4 @@ SootopolisCity_Gym_1F_Text_JuanPostRematch:
 	.string "I imagine that to be so.\p"
 	.string "And that, my friend, is a certain sign\n"
 	.string "of nobility!$"
-
-SootopolisCity_Gym_1F_Text_JuanRematchNeedTwoMons:
-	.string "JUAN: Ah, this GYM had returned to its\n"
-	.string "usual state of serenity…\p"
-	.string "But our young typhoon has returned\n"
-	.string "to put us to the test again!\p"
-	.string "Well, my friend, most certainly!\n"
-	.string "I shall be delighted to dance with you…\p"
-	.string "Ah, no, no, no.\n"
-	.string "You have with you but one POKéMON.\p"
-	.string "I wish that you would return with\n"
-	.string "two, perhaps more, POKéMON, please.$"
 

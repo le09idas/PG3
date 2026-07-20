@@ -134,8 +134,24 @@ DewfordTown_Gym_EventScript_StopCountingTrainers::
 
 DewfordTown_Gym_EventScript_Brawly::
 	trainerbattle_single TRAINER_BRAWLY_1, DewfordTown_Gym_Text_BrawlyIntro, DewfordTown_Gym_Text_BrawlyDefeat, DewfordTown_Gym_EventScript_BrawlyDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, DewfordTown_Gym_EventScript_BrawlyRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne -- see GetBrawlyAllowedRematchTier
+	@ in src/field_specials.c.
+	specialvar VAR_RESULT, GetBrawlyAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, DewfordTown_Gym_EventScript_BrawlyNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 2
+	goto_if_not_defeated TRAINER_BRAWLY_2, DewfordTown_Gym_EventScript_BrawlyCheckRematchGate
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_BRAWLY_3, DewfordTown_Gym_EventScript_BrawlyCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_BRAWLY_4, DewfordTown_Gym_EventScript_BrawlyCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_BRAWLY_5, DewfordTown_Gym_EventScript_BrawlyCheckRematchGate
+	setvar VAR_0x8008, 6
+DewfordTown_Gym_EventScript_BrawlyCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, DewfordTown_Gym_EventScript_BrawlyRematch
+DewfordTown_Gym_EventScript_BrawlyNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_BULK_UP, DewfordTown_Gym_EventScript_GiveBulkUp2
 	msgbox DewfordTown_Gym_Text_BrawlyPostBattle, MSGBOX_DEFAULT
 	release
@@ -183,8 +199,45 @@ DewfordTown_Gym_EventScript_GiveBulkUp2:
 	end
 
 DewfordTown_Gym_EventScript_BrawlyRematch::
-	trainerbattle_rematch_double TRAINER_BRAWLY_1, DewfordTown_Gym_Text_BrawlyPreRematch, DewfordTown_Gym_Text_BrawlyRematchDefeat, DewfordTown_Gym_Text_BrawlyRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_BRAWLY_1, DewfordTown_Gym_Text_BrawlyPreRematch, DewfordTown_Gym_Text_BrawlyRematchDefeat
 	msgbox DewfordTown_Gym_Text_BrawlyPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetBrawlyNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 2, DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier2
+	goto_if_eq VAR_RESULT, 3, DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier5
+	goto DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier6
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier2::
+	pokenavcall DewfordTown_Gym_Text_BrawlyRematchCall_Tier2
+	goto DewfordTown_Gym_EventScript_BrawlyRematchCall_Finish
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier3::
+	pokenavcall DewfordTown_Gym_Text_BrawlyRematchCall_Tier3
+	goto DewfordTown_Gym_EventScript_BrawlyRematchCall_Finish
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier4::
+	pokenavcall DewfordTown_Gym_Text_BrawlyRematchCall_Tier4
+	goto DewfordTown_Gym_EventScript_BrawlyRematchCall_Finish
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier5::
+	pokenavcall DewfordTown_Gym_Text_BrawlyRematchCall_Tier5
+	goto DewfordTown_Gym_EventScript_BrawlyRematchCall_Finish
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Tier6::
+	pokenavcall DewfordTown_Gym_Text_BrawlyRematchCall_Tier6
+
+DewfordTown_Gym_EventScript_BrawlyRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetBrawlyLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 DewfordTown_Gym_EventScript_Takao::
@@ -418,6 +471,49 @@ DewfordTown_Gym_Text_RegisteredBrawly:
 	.string "Registered GYM LEADER BRAWLY\n"
 	.string "in the POKéNAV.$"
 
+DewfordTown_Gym_Text_BrawlyRematchCall_Tier2:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "BRAWLY: Yo, {PLAYER}! It's BRAWLY.\p"
+	.string "Heard you took down FLANNERY. That's\n"
+	.string "a serious wave you're riding.\p"
+	.string "Come catch one with me at the GYM!$"
+
+DewfordTown_Gym_Text_BrawlyRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "BRAWLY: Yo, {PLAYER}! It's BRAWLY.\p"
+	.string "VICTORY ROAD, huh? That's some gnarly\n"
+	.string "terrain to power through.\p"
+	.string "Swing by the GYM -- let's see what\n"
+	.string "that's done for your battle style.$"
+
+DewfordTown_Gym_Text_BrawlyRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "BRAWLY: Yo, {PLAYER}! It's BRAWLY.\p"
+	.string "The CHAMPION title suits you. I never\n"
+	.string "would've called that back at the GYM.\p"
+	.string "Let's go another round, CHAMP!$"
+
+DewfordTown_Gym_Text_BrawlyRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "BRAWLY: Yo, {PLAYER}! It's BRAWLY.\p"
+	.string "Word is you're racking up BATTLE\n"
+	.string "FRONTIER SYMBOLS now.\p"
+	.string "I've been chasing bigger waves myself.\n"
+	.string "Come see how I've grown!$"
+
+DewfordTown_Gym_Text_BrawlyRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "BRAWLY: Yo, {PLAYER}! It's BRAWLY.\p"
+	.string "GOLD at every FRONTIER FACILITY? That's\n"
+	.string "the biggest wave there is.\p"
+	.string "I've given my team everything I've got.\n"
+	.string "Come ride this one out with me!$"
+
 DewfordTown_Gym_Text_BrawlyPostBattle:
 	.string "I can see your talent becoming a giant\n"
 	.string "wave to cause a storm of astonishment\l"
@@ -448,12 +544,3 @@ DewfordTown_Gym_Text_BrawlyPostRematch:
 	.string "You can't see the bottom.\l"
 	.string "It's just like the sea of HOENN!$"
 
-DewfordTown_Gym_Text_BrawlyRematchNeedTwoMons:
-	.string "BRAWLY: A wave may draw back, but it\n"
-	.string "always returns to the shore.\p"
-	.string "A giant wave of a talent like you…\n"
-	.string "I knew you would return!\p"
-	.string "Oh? You only have one POKéMON\n"
-	.string "that can battle.\p"
-	.string "I'm sorry, but I'd like you to come back\n"
-	.string "with at least two POKéMON.$"

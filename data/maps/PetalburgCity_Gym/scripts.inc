@@ -50,8 +50,11 @@ PetalburgCity_Gym_EventScript_MoveNormanToEntrance::
 	return
 
 PetalburgCity_Gym_EventScript_CheckNormanForRematch::
-	setorcopyvar VAR_TRAINER_BATTLE_OPPONENT_A, TRAINER_NORMAN_1
-	specialvar VAR_RESULT, IsTrainerReadyForRematch
+	@ PG3 Phase 2: use the deterministic tier gate instead of vanilla's RNG
+	@ IsTrainerReadyForRematch, so Norman doesn't move to the front (implying
+	@ a rematch is ready) before one is actually unlocked -- see
+	@ GetNormanAllowedRematchTier in src/field_specials.c.
+	specialvar VAR_RESULT, IsNormanRematchPending
 	goto_if_eq VAR_RESULT, TRUE, PetalburgCity_Gym_EventScript_DontMoveNormanToFront
 	goto_if_eq VAR_PETALBURG_GYM_STATE, 8, PetalburgCity_Gym_EventScript_DontMoveNormanToFront
 	setobjectxyperm LOCALID_PETALBURG_GYM_NORMAN, 4, 107
@@ -340,8 +343,64 @@ PetalburgCity_Gym_EventScript_GiveFacade2::
 	end
 
 PetalburgCity_Gym_EventScript_NormanRematch::
-	trainerbattle_rematch_double TRAINER_NORMAN_1, PetalburgCity_Gym_Text_NormanPreRematch, PetalburgCity_Gym_Text_NormanRematchDefeat, PetalburgCity_Gym_Text_NormanRematchNeedTwoMons
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne, but starting at tier 3. State 8
+	@ (this case) is entered once ANY rematch is pending per
+	@ IsNormanRematchPending, but the same "no skipping" gate needs
+	@ re-checking here too so each individual talk-to-Norman only offers the
+	@ specific next tier he's actually eligible for -- see
+	@ GetNormanAllowedRematchTier in src/field_specials.c.
+	specialvar VAR_RESULT, GetNormanAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, PetalburgCity_Gym_EventScript_NormanPostBattle
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_NORMAN_2, PetalburgCity_Gym_EventScript_NormanCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_NORMAN_3, PetalburgCity_Gym_EventScript_NormanCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_NORMAN_4, PetalburgCity_Gym_EventScript_NormanCheckRematchGate
+	setvar VAR_0x8008, 6
+	goto_if_not_defeated TRAINER_NORMAN_5, PetalburgCity_Gym_EventScript_NormanCheckRematchGate
+	setvar VAR_0x8008, 6
+PetalburgCity_Gym_EventScript_NormanCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, PetalburgCity_Gym_EventScript_NormanDoRematch
+	goto PetalburgCity_Gym_EventScript_NormanPostBattle
+
+PetalburgCity_Gym_EventScript_NormanDoRematch::
+	trainerbattle_rematch TRAINER_NORMAN_1, PetalburgCity_Gym_Text_NormanPreRematch, PetalburgCity_Gym_Text_NormanRematchDefeat
 	msgbox PetalburgCity_Gym_Text_NormanPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+PetalburgCity_Gym_EventScript_NormanRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetNormanNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 3, PetalburgCity_Gym_EventScript_NormanRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, PetalburgCity_Gym_EventScript_NormanRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, PetalburgCity_Gym_EventScript_NormanRematchCall_Tier5
+	goto PetalburgCity_Gym_EventScript_NormanRematchCall_Tier6
+
+PetalburgCity_Gym_EventScript_NormanRematchCall_Tier3::
+	pokenavcall PetalburgCity_Gym_Text_NormanRematchCall_Tier3
+	goto PetalburgCity_Gym_EventScript_NormanRematchCall_Finish
+
+PetalburgCity_Gym_EventScript_NormanRematchCall_Tier4::
+	pokenavcall PetalburgCity_Gym_Text_NormanRematchCall_Tier4
+	goto PetalburgCity_Gym_EventScript_NormanRematchCall_Finish
+
+PetalburgCity_Gym_EventScript_NormanRematchCall_Tier5::
+	pokenavcall PetalburgCity_Gym_Text_NormanRematchCall_Tier5
+	goto PetalburgCity_Gym_EventScript_NormanRematchCall_Finish
+
+PetalburgCity_Gym_EventScript_NormanRematchCall_Tier6::
+	pokenavcall PetalburgCity_Gym_Text_NormanRematchCall_Tier6
+
+PetalburgCity_Gym_EventScript_NormanRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetNormanLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 PetalburgCity_Gym_EventScript_ShouldGiveEnigmaBerry::
@@ -1574,17 +1633,39 @@ PetalburgCity_Gym_Text_NormanPostRematch:
 	.string "Hahaha…\l"
 	.string "It has already come true, actually.$"
 
-PetalburgCity_Gym_Text_NormanRematchNeedTwoMons:
-	.string "DAD: {PLAYER}…\n"
-	.string "I had a feeling that you would come.\p"
-	.string "I would never refuse to accept\n"
-	.string "a challenge from you.\p"
-	.string "You do understand, don't you?\p"
-	.string "Inside a GYM, it doesn't matter that\n"
-	.string "we are a parent and child.\p"
-	.string "Hm? Wait a second, {PLAYER}.\p"
-	.string "Do you only have one POKéMON that is\n"
-	.string "capable of battle?\p"
-	.string "Sorry, but you'll have to come back\n"
-	.string "with at least two POKéMON.$"
+PetalburgCity_Gym_Text_NormanRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "DAD: {PLAYER}? It's your dad.\p"
+	.string "I heard you cleared VICTORY ROAD.\n"
+	.string "That's my kid.\p"
+	.string "Come by the GYM sometime -- I'd like\n"
+	.string "to see how far you've come.$"
+
+PetalburgCity_Gym_Text_NormanRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "DAD: {PLAYER}? It's your dad.\p"
+	.string "CHAMPION, huh? I always knew you had\n"
+	.string "it in you.\p"
+	.string "Come by the GYM. I'd like one more\n"
+	.string "match, parent to CHAMPION.$"
+
+PetalburgCity_Gym_Text_NormanRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "DAD: {PLAYER}? It's your dad.\p"
+	.string "BATTLE FRONTIER SYMBOLS? Word travels\n"
+	.string "fast around here.\p"
+	.string "I've kept training too. Come by\n"
+	.string "the GYM and see for yourself.$"
+
+PetalburgCity_Gym_Text_NormanRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "DAD: {PLAYER}? It's your dad.\p"
+	.string "GOLD at every FRONTIER FACILITY.\n"
+	.string "I'm proud of you, {PLAYER}.\p"
+	.string "I've given this old GYM everything\n"
+	.string "I've got left. Come see me.$"
 

@@ -45,8 +45,24 @@ LavaridgeTown_Gym_1F_EventScript_EndCheckBuryTrainers::
 
 LavaridgeTown_Gym_1F_EventScript_Flannery::
 	trainerbattle_single TRAINER_FLANNERY_1, LavaridgeTown_Gym_1F_Text_FlanneryIntro, LavaridgeTown_Gym_1F_Text_FlanneryDefeat, LavaridgeTown_Gym_1F_EventScript_FlanneryDefeated, NO_MUSIC
-	specialvar VAR_RESULT, ShouldTryRematchBattle
-	goto_if_eq VAR_RESULT, TRUE, LavaridgeTown_Gym_1F_EventScript_FlanneryRematch
+	@ PG3 Phase 2: deterministic rematch-tier gating, same pattern as
+	@ RustboroCity_Gym_EventScript_Roxanne, but starting at tier 3 -- see
+	@ GetFlanneryAllowedRematchTier in src/field_specials.c.
+	specialvar VAR_RESULT, GetFlanneryAllowedRematchTier
+	goto_if_eq VAR_RESULT, 0, LavaridgeTown_Gym_1F_EventScript_FlanneryNoRematchYet
+	copyvar VAR_0x8009, VAR_RESULT
+	setvar VAR_0x8008, 3
+	goto_if_not_defeated TRAINER_FLANNERY_2, LavaridgeTown_Gym_1F_EventScript_FlanneryCheckRematchGate
+	setvar VAR_0x8008, 4
+	goto_if_not_defeated TRAINER_FLANNERY_3, LavaridgeTown_Gym_1F_EventScript_FlanneryCheckRematchGate
+	setvar VAR_0x8008, 5
+	goto_if_not_defeated TRAINER_FLANNERY_4, LavaridgeTown_Gym_1F_EventScript_FlanneryCheckRematchGate
+	setvar VAR_0x8008, 6
+	goto_if_not_defeated TRAINER_FLANNERY_5, LavaridgeTown_Gym_1F_EventScript_FlanneryCheckRematchGate
+	setvar VAR_0x8008, 6
+LavaridgeTown_Gym_1F_EventScript_FlanneryCheckRematchGate::
+	goto_if_ge VAR_0x8009, VAR_0x8008, LavaridgeTown_Gym_1F_EventScript_FlanneryRematch
+LavaridgeTown_Gym_1F_EventScript_FlanneryNoRematchYet::
 	goto_if_unset FLAG_RECEIVED_TM_OVERHEAT, LavaridgeTown_Gym_1F_EventScript_GiveOverheat2
 	msgbox LavaridgeTown_Gym_1F_Text_FlanneryPostBattle, MSGBOX_DEFAULT
 	release
@@ -94,8 +110,40 @@ LavaridgeTown_Gym_1F_EventScript_GiveOverheat::
 	return
 
 LavaridgeTown_Gym_1F_EventScript_FlanneryRematch::
-	trainerbattle_rematch_double TRAINER_FLANNERY_1, LavaridgeTown_Gym_1F_Text_FlanneryPreRematch, LavaridgeTown_Gym_1F_Text_FlanneryRematchDefeat, LavaridgeTown_Gym_1F_Text_FlanneryRematchNeedTwoMons
+	trainerbattle_rematch TRAINER_FLANNERY_1, LavaridgeTown_Gym_1F_Text_FlanneryPreRematch, LavaridgeTown_Gym_1F_Text_FlanneryRematchDefeat
 	msgbox LavaridgeTown_Gym_1F_Text_FlanneryPostRematch, MSGBOX_AUTOCLOSE
+	end
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall::
+	lockall
+	specialvar VAR_RESULT, GetFlanneryNextRematchTier
+	copyvar VAR_0x8008, VAR_RESULT
+	goto_if_eq VAR_RESULT, 3, LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier3
+	goto_if_eq VAR_RESULT, 4, LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier4
+	goto_if_eq VAR_RESULT, 5, LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier5
+	goto LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier6
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier3::
+	pokenavcall LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier3
+	goto LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Finish
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier4::
+	pokenavcall LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier4
+	goto LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Finish
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier5::
+	pokenavcall LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier5
+	goto LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Finish
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Tier6::
+	pokenavcall LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier6
+
+LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall_Finish::
+	waitmessage
+	closemessage
+	special SetFlanneryLastAcknowledgedRematchTier
+	setvar VAR_GYM_REMATCH_CALL_STEP_COUNTER, 0
+	releaseall
 	end
 
 LavaridgeTown_Gym_1F_EventScript_Cole::
@@ -351,6 +399,42 @@ LavaridgeTown_Gym_1F_Text_RegisteredFlannery:
 	.string "Registered GYM LEADER FLANNERY\n"
 	.string "in the POKéNAV.$"
 
+LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier3:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "FLANNERY: Hey, {PLAYER}! FLANNERY here!\p"
+	.string "VICTORY ROAD, huh? That's a heated\n"
+	.string "climb if I ever heard of one.\p"
+	.string "Come by the GYM -- I've got a fire\n"
+	.string "lit under me too!$"
+
+LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier4:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "FLANNERY: Hey, {PLAYER}! FLANNERY here!\p"
+	.string "CHAMPION! I love it! I never would've\n"
+	.string "called that back at the GYM.\p"
+	.string "Come see me for another heated\n"
+	.string "battle, won't you?$"
+
+LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier5:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "FLANNERY: Hey, {PLAYER}! FLANNERY here!\p"
+	.string "BATTLE FRONTIER SYMBOLS?! That's the\n"
+	.string "kind of heat I love to see.\p"
+	.string "Come by the GYM -- I've stoked my\n"
+	.string "own flame plenty since we last met!$"
+
+LavaridgeTown_Gym_1F_Text_FlanneryRematchCall_Tier6:
+	.string "… … … … … …\n"
+	.string "… … … … … Beep!\p"
+	.string "FLANNERY: Hey, {PLAYER}! FLANNERY here!\p"
+	.string "GOLD at every FRONTIER FACILITY! Now\n"
+	.string "THAT'S a battle spirit I respect.\p"
+	.string "I've turned my team's heat all the\n"
+	.string "way up. Come feel it for yourself!$"
+
 LavaridgeTown_Gym_1F_Text_FlanneryPostBattle:
 	.string "Your power reminds me of someone…\p"
 	.string "Oh! I know! You battle like NORMAN,\n"
@@ -385,15 +469,3 @@ LavaridgeTown_Gym_1F_Text_FlanneryPostRematch:
 	.string "Let's have another one like this\n"
 	.string "again sometime!$"
 
-LavaridgeTown_Gym_1F_Text_FlanneryRematchNeedTwoMons:
-	.string "FLANNERY: Losing a battle isn't going\n"
-	.string "to deflate me.\p"
-	.string "I love POKéMON.\n"
-	.string "I love to battle.\l"
-	.string "And… I love this GYM!\p"
-	.string "Let's exchange superhot moves\n"
-	.string "in another battle!\p"
-	.string "Oh, wait. Do you only have one POKéMON\n"
-	.string "that can battle?\p"
-	.string "I hate to say this, but when you come\n"
-	.string "see me, bring at least two POKéMON.$"

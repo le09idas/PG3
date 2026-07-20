@@ -6,6 +6,154 @@ read it first.
 
 ---
 
+## 2026-07-20 — Remaining 5 gym leaders: all 8 leaders now on the tier system
+
+Rolled out the pattern to Flannery, Norman, Winona, Tate & Liza, and Juan
+(`LavaridgeTown_Gym_1F`, `PetalburgCity_Gym`, `FortreeCity_Gym`,
+`MossdeepCity_Gym`, `SootopolisCity_Gym_1F`). All 8 gym leaders are now on
+the deterministic tier system.
+
+**Correctness fix applied retroactively to all 8:** tier 5 ("Silver
+medals") was being computed as "7+ symbols summed across facilities,"
+which isn't the same thing as "every facility has at least Silver" (e.g.
+3 Gold + 1 Silver = 7 without ever touching the other 3 facilities). Fixed
+to `silverCount >= NUM_FRONTIER_FACILITIES`, mirroring how Gold already
+worked -- applies to `GetRoxanneAllowedRematchTier` /
+`GetBrawlyAllowedRematchTier` / `GetWattsonAllowedRematchTier` too.
+
+**This group has 4 rematches each, not 5** (confirmed with user): their
+milestone table is `2,3,4,5` (Victory Road / E4 / Silver / Gold), no
+tier-2 stage, since Flannery herself is what unlocks tier 2 for everyone
+else. That maps exactly onto their 4 existing vanilla trainer slots
+(`_2`-`_5`) with no level-scaled "tier 6" reuse needed -- tier 6 (all-Gold)
+*is* their last real roster reused at +10, same mechanism as the other
+group's tier 6, just one slot earlier in the sequence.
+
+**Tate & Liza kept as a double battle** (not converted to singles like the
+other 7) -- confirmed with user this is correct, since
+`TRAINER_TATE_AND_LIZA_1` (their very first, non-rematch fight) is
+already `.doubleBattle = TRUE` in vanilla: they're twin leaders who always
+fight as a pair, not a rematch-only quirk like the other leaders had.
+
+**Norman needed real adaptation, not just a copy-paste.** Petalburg Gym's
+rematch flow is structurally different from every other leader: instead of
+an inline `ShouldTryRematchBattle` check at interact-time, Norman's
+eligibility is pre-computed into `VAR_PETALBURG_GYM_STATE` (shared with
+badge-count and the Wally-tutorial sequence) via
+`PetalburgCity_Gym_EventScript_CheckNormanForRematch`, called from
+`OnTransition` (map entry), which then drives a `switch` on that var
+(`case 8` = rematch-ready). Two changes:
+- Swapped `IsTrainerReadyForRematch` for a new `IsNormanRematchPending()`
+  wrapper (`src/field_specials.c`) so the "move Norman to the front of the
+  room" visual cue is driven by the real tier gate, not vanilla's RNG --
+  same class of fix as the earlier blink-indicator bug.
+- `PetalburgCity_Gym_EventScript_NormanRematch` (the `case 8` target) now
+  re-runs the full "no skipping" gate chain itself, since vanilla's
+  `VAR_PETALBURG_GYM_STATE == 8` is a one-way, permanent transition --
+  once set, every future interaction would otherwise skip straight to
+  `GetRematchTrainerIdFromTable`'s resolution with no per-tier check,
+  letting the player race through tiers exactly like the original Roxanne
+  bug. Falls back to `NormanPostBattle` if the specific next tier isn't
+  covered yet, same as every other leader.
+
+Builds clean (one full `make modern` pass, no errors) across all 5 new
+leaders. **None of the 5 new leaders tested live yet.**
+
+**Current phase:** Phase 2 -- all 8 gym leaders on the deterministic tier
+system. Var cost for the entire rollout: 3 vars total (unchanged since the
+Brawly checkpoint), confirming the shared/bit-packed scheme scales as
+designed.
+
+**Next up:**
+- Live-verify Flannery, Norman, Winona, Tate & Liza, and Juan (gate,
+  4-rematch cap, calls) the same way the first 3 were verified.
+- Elite Four (5 members) and the 3 rivals (Steven/Wally/May or Brendan)
+  still need from-scratch rematch systems -- no vanilla `_2..5` structure
+  to build on, unlike every gym leader.
+- Revisit actual roster content (species/levels/movesets) for all 8
+  leaders once the mechanism is fully verified -- still using vanilla's
+  original rosters throughout.
+
+---
+
+## 2026-07-19 — Wattson: third gym leader; no special quest gate for now
+
+User confirmed: Wattson has no dedicated tier-2 quest content yet, so his
+tier 2 uses the same `FLAG_BADGE04_GET` milestone as everyone else --
+revisit with a real quest (New Mauville was floated as a natural fit for
+an electric-type leader) later if desired.
+
+Applied the same pattern as Roxanne/Brawly to Wattson (`MauvilleCity_Gym`):
+`GetWattsonAllowedRematchTier()` / `IsWattsonRematchReady()` /
+`GetWattsonNextRematchTier()` / `ShouldDoWattsonRematchCall()` /
+`SetWattsonLastAcknowledgedRematchTier()` (`src/field_specials.c`);
+`TRAINER_WATTSON_2`-`_5` flipped to `.doubleBattle = FALSE`; gate chain
+replaces `ShouldTryRematchBattle` in `MauvilleCity_Gym_EventScript_Wattson`,
+carefully preserving the existing `VAR_NEW_MAUVILLE_STATE` branch in the
+no-rematch-yet fallback path (unrelated vanilla content, needed to stay
+reachable); `trainerbattle_rematch_double` -> `trainerbattle_rematch`;
+5 tier-specific call texts in his voice; `GYM_REMATCH_LEADER_WATTSON`
+added to the enum. Still **zero new vars** -- three leaders now sharing
+the same packed scheme.
+
+Builds clean. **Not yet tested live.**
+
+**Current phase:** Phase 2 -- 3 of 8 gym leaders done (Roxanne, Brawly,
+Wattson). Same milestone table (badge 4 / Victory Road / E4 / 7+ symbols /
+all-Gold) used for all three so far, matching the user's "1,2,3,4,5" rows
+for these leaders.
+
+**Next up:** Flannery, Norman, Winona, Tate & Liza, Juan -- these are
+milestone `2,3,4,5` per the user's table (no tier-2 stage, since e.g.
+Flannery herself is what unlocks tier 2 for everyone else -- her own
+rematch chain needs to start at tier 3/Victory Road instead). Elite Four
+and rivals still need from-scratch systems, not replication.
+
+---
+
+## 2026-07-19 — Brawly: second gym leader, proving the pattern replicates
+
+Applied the full Roxanne pattern to Brawly (`DewfordTown_Gym`) as the
+second data point before rolling out to the remaining 6 leaders:
+- `GetBrawlyAllowedRematchTier()` / `IsBrawlyRematchReady()` /
+  `GetBrawlyNextRematchTier()` / `ShouldDoBrawlyRematchCall()` /
+  `SetBrawlyLastAcknowledgedRematchTier()` (`src/field_specials.c`) --
+  direct copies of Roxanne's, same milestone mapping (badge 4 / Victory
+  Road / E4 / 7+ symbols / all-Gold), since the user's design table lists
+  Brawly as `1,2,3,4,5` same as Roxanne.
+- `TRAINER_BRAWLY_2`-`_5` flipped to `.doubleBattle = FALSE`
+  (`src/data/trainers.h`); `DewfordTown_Gym_EventScript_Brawly` replaced
+  `ShouldTryRematchBattle` with the tier-gate chain and switched
+  `trainerbattle_rematch_double` to `trainerbattle_rematch`; removed the
+  now-orphaned "need two mons" text.
+- New `DewfordTown_Gym_EventScript_BrawlyRematchCall` + 5 tier-specific
+  call texts in Brawly's own voice (surfer/wave motif, matching his
+  existing dialogue).
+- `GYM_REMATCH_LEADER_BRAWLY` added to the enum in `field_specials.c` --
+  **zero new vars needed**, confirming the shared-step-counter/bit-packed-
+  tier scheme designed for Roxanne actually holds up with a second leader
+  sharing it, not just in theory.
+
+Builds clean. **Not yet tested live.**
+
+**Current phase:** Phase 2 -- 2 of 8 gym leaders done (Roxanne, Brawly).
+User wants Brawly verified working before continuing to the remaining 6
+(Wattson, Flannery, Norman, Winona, Tate & Liza, Juan) plus Elite Four
+(needs a from-scratch system, no vanilla `_2..5` structure to build on)
+and the 3 rivals.
+
+**Next up:**
+- Live-verify Brawly's gate/level-scaling/calls the same way Roxanne's
+  were verified.
+- Note: Wattson's milestone 1 is user-flagged as "after his quest" --
+  still unclear what that quest is; needs clarifying before Wattson's
+  tier-2 gate can be written.
+- Continue the remaining 5 gym leaders (straightforward copies once
+  Brawly confirms) before tackling Elite Four/rivals, which need new
+  systems rather than replication.
+
+---
+
 ## 2026-07-19 — Var-budget audit + shared/bit-packed rematch-call scheme
 
 **Budget question:** with 8 leaders eventually needing their own rematch

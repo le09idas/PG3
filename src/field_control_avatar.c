@@ -592,6 +592,41 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
             ScriptContext_SetupScript(RustboroCity_Gym_EventScript_RoxanneRematchCall);
             return TRUE;
         }
+        if (ShouldDoBrawlyRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(DewfordTown_Gym_EventScript_BrawlyRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoWattsonRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(MauvilleCity_Gym_EventScript_WattsonRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoFlanneryRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(LavaridgeTown_Gym_1F_EventScript_FlanneryRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoNormanRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(PetalburgCity_Gym_EventScript_NormanRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoWinonaRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(FortreeCity_Gym_EventScript_WinonaRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoTateAndLizaRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(MossdeepCity_Gym_EventScript_TateAndLizaRematchCall);
+            return TRUE;
+        }
+        if (ShouldDoJuanRematchCall() == TRUE)
+        {
+            ScriptContext_SetupScript(SootopolisCity_Gym_1F_EventScript_JuanRematchCall);
+            return TRUE;
+        }
         if (ShouldDoRivalRayquazaCall() == TRUE)
         {
             ScriptContext_SetupScript(MossdeepCity_SpaceCenter_2F_EventScript_RivalRayquazaCall);
