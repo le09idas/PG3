@@ -21,13 +21,19 @@ Route119_OnTransition:
 	call Route119_EventScript_CheckWeatherAnomaly
 	end
 
-@ PG3 quest: a sandstorm on this lush route is the "wrong" weather here.
+@ PG3 quest: harsh, overbearing sun on this normally rainy route is the
+@ "wrong" weather here; rain is the fixed "fixed it" state once solved
+@ (DoCoordEventWeather suppresses this route's own per-tile weather-cycle
+@ triggers for the same reason the desert's are suppressed).
 Route119_EventScript_CheckWeatherAnomaly::
 	setflag FLAG_HIDE_QUEST_WEATHER_ROUTE119_MARKERS
 	goto_if_unset FLAG_QUEST_WEATHER_STARTED, Route119_EventScript_CheckWeatherAnomalyReturn
-	goto_if_set FLAG_QUEST_WEATHER_ROUTE119_DONE, Route119_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_ROUTE119_DONE, Route119_EventScript_SetResolvedWeather
 	clearflag FLAG_HIDE_QUEST_WEATHER_ROUTE119_MARKERS
-	setweather WEATHER_SANDSTORM
+	setweather WEATHER_DROUGHT
+	return
+Route119_EventScript_SetResolvedWeather::
+	setweather WEATHER_RAIN
 Route119_EventScript_CheckWeatherAnomalyReturn::
 	return
 
@@ -517,6 +523,7 @@ Route119_EventScript_WeatherMarkerC::
 	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
 	setvar VAR_TEMP_8, 0
 	setflag FLAG_QUEST_WEATHER_ROUTE119_DONE
+	setweather WEATHER_RAIN
 	goto QuestWeather_EventScript_SiteResolved
 	end
 

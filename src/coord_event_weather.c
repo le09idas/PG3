@@ -1,6 +1,7 @@
 #include "global.h"
 #include "constants/weather.h"
 #include "coord_event_weather.h"
+#include "field_specials.h"
 #include "field_weather.h"
 
 struct CoordEventWeather
@@ -108,6 +109,12 @@ static void CoordEventWeather_Route123Cycle(void)
 void DoCoordEventWeather(u8 coordEventWeather)
 {
     u8 i;
+
+    // PG3 quest: Route 111/119's own per-tile weather triggers get suppressed
+    // while the weather-anomaly sidequest has claimed that route's weather.
+    if (IsQuestWeatherCoordEventSuppressed())
+        return;
+
     for (i = 0; i < ARRAY_COUNT(sCoordEventWeatherFuncs); i++)
     {
         if (sCoordEventWeatherFuncs[i].coordEventWeather == coordEventWeather)

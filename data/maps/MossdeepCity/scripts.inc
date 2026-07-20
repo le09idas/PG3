@@ -11,13 +11,17 @@ MossdeepCity_OnTransition:
 	call MossdeepCity_EventScript_CheckWeatherAnomaly
 	end
 
-@ PG3 quest: a storm over this sunny coastal city is the "wrong" weather here.
+@ PG3 quest: a sandstorm over this sunny coastal city is the "wrong" weather
+@ here; sunny is the fixed "fixed it" state once solved, its real baseline.
 MossdeepCity_EventScript_CheckWeatherAnomaly::
 	setflag FLAG_HIDE_QUEST_WEATHER_MOSSDEEP_MARKERS
 	goto_if_unset FLAG_QUEST_WEATHER_STARTED, MossdeepCity_EventScript_CheckWeatherAnomalyReturn
-	goto_if_set FLAG_QUEST_WEATHER_MOSSDEEP_DONE, MossdeepCity_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_MOSSDEEP_DONE, MossdeepCity_EventScript_SetResolvedWeather
 	clearflag FLAG_HIDE_QUEST_WEATHER_MOSSDEEP_MARKERS
-	setweather WEATHER_RAIN_THUNDERSTORM
+	setweather WEATHER_SANDSTORM
+	return
+MossdeepCity_EventScript_SetResolvedWeather::
+	setweather WEATHER_SUNNY
 MossdeepCity_EventScript_CheckWeatherAnomalyReturn::
 	return
 
@@ -345,6 +349,7 @@ MossdeepCity_EventScript_WeatherMarkerC::
 	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
 	setvar VAR_TEMP_8, 0
 	setflag FLAG_QUEST_WEATHER_MOSSDEEP_DONE
+	setweather WEATHER_SUNNY
 	goto QuestWeather_EventScript_SiteResolved
 	end
 

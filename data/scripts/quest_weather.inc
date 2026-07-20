@@ -19,11 +19,15 @@ QuestWeather_EventScript_StevenCall::
 	releaseall
 	end
 
-@ Called by each site's puzzle right after that site's own DONE flag is set.
-@ Checks whether all three are now done and arms Steven's call if so.
+@ Called by each site's puzzle right after that site's own DONE flag is set
+@ AND that site's own correct "resting" weather has already been set (via
+@ setweather, not yet applied) by the caller -- each site's true baseline
+@ differs (Route 111's desert sandstorm/Route 119's patchy cycle aren't
+@ "sunny"), so this shared script only applies whatever was set, it doesn't
+@ decide what to set. Checks whether all three are now done and arms
+@ Steven's call if so.
 QuestWeather_EventScript_SiteResolved::
 	lockall
-	setweather WEATHER_SUNNY
 	doweather
 	playmoncry SPECIES_RAYQUAZA, CRY_MODE_NORMAL
 	waitmoncry

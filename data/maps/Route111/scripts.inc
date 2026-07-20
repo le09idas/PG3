@@ -49,13 +49,20 @@ Route111_OnTransition:
 	call Route111_EventScript_CheckWeatherAnomaly
 	end
 
-@ PG3 quest: rain in the desert is the "wrong" weather here, which is the point.
+@ PG3 quest: rain in the desert is the "wrong" weather here, which is the
+@ point; sandstorm is the fixed "fixed it" state once solved (not the
+@ vanilla position-based CheckSetSandstorm variation -- the puzzle result is
+@ meant to be a flat, permanent state, and DoCoordEventWeather suppresses
+@ this route's own per-tile weather triggers for the same reason).
 Route111_EventScript_CheckWeatherAnomaly::
 	setflag FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS
 	goto_if_unset FLAG_QUEST_WEATHER_STARTED, Route111_EventScript_CheckWeatherAnomalyReturn
-	goto_if_set FLAG_QUEST_WEATHER_ROUTE111_DONE, Route111_EventScript_CheckWeatherAnomalyReturn
+	goto_if_set FLAG_QUEST_WEATHER_ROUTE111_DONE, Route111_EventScript_SetResolvedWeather
 	clearflag FLAG_HIDE_QUEST_WEATHER_ROUTE111_MARKERS
 	setweather WEATHER_RAIN_THUNDERSTORM
+	return
+Route111_EventScript_SetResolvedWeather::
+	setweather WEATHER_SANDSTORM
 Route111_EventScript_CheckWeatherAnomalyReturn::
 	return
 
@@ -250,17 +257,25 @@ Route111_Movement_PushRightFromRoute:
 	walk_right
 	step_end
 
+@ PG3 quest: these fire from scripted (not declarative) coord-events, so they
+@ bypass DoCoordEventWeather's suppression check entirely -- guard directly.
 Route111_EventScript_SunTrigger::
+	specialvar VAR_RESULT, IsQuestWeatherCoordEventSuppressed
+	goto_if_eq VAR_RESULT, TRUE, Route111_EventScript_SunTriggerNoWeather
 	setweather WEATHER_SUNNY
-	fadenewbgm MUS_ROUTE110
 	doweather
+Route111_EventScript_SunTriggerNoWeather::
+	fadenewbgm MUS_ROUTE110
 	setvar VAR_TEMP_3, 0
 	end
 
 Route111_EventScript_SandstormTrigger::
+	specialvar VAR_RESULT, IsQuestWeatherCoordEventSuppressed
+	goto_if_eq VAR_RESULT, TRUE, Route111_EventScript_SandstormTriggerNoWeather
 	setweather WEATHER_SANDSTORM
-	fadenewbgm MUS_DESERT
 	doweather
+Route111_EventScript_SandstormTriggerNoWeather::
+	fadenewbgm MUS_DESERT
 	end
 
 Route111_EventScript_Victor::
@@ -466,6 +481,7 @@ Route111_EventScript_WeatherMarkerC::
 	goto_if_ne VAR_TEMP_8, 2, QuestWeather_EventScript_MarkerWrongOrder
 	setvar VAR_TEMP_8, 0
 	setflag FLAG_QUEST_WEATHER_ROUTE111_DONE
+	setweather WEATHER_SANDSTORM
 	goto QuestWeather_EventScript_SiteResolved
 	end
 
