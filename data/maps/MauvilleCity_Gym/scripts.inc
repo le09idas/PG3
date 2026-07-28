@@ -309,6 +309,27 @@ MauvilleCity_Gym_EventScript_GymStatue::
 	releaseall
 	end
 
+@ Post-clear shortcut: once Wattson's been beaten, skip straight to his mat
+@ instead of re-walking the electric-barrier puzzle floor.
+MauvilleCity_Gym_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_MAUVILLE_GYM, MauvilleCity_Gym_EventScript_GymShortcutEnd
+	lockall
+	warp MAP_MAUVILLE_CITY_GYM, 5, 3
+	waitstate
+	releaseall
+MauvilleCity_Gym_EventScript_GymShortcutEnd::
+	end
+
+@ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
+@ existing GymShortcut/WarpToEntrance pair. Always available, same as
+@ leaving the gym normally, just faster.
+MauvilleCity_Gym_EventScript_GymShortcutReturn::
+	lockall
+	warp MAP_MAUVILLE_CITY_GYM, 5, 19
+	waitstate
+	releaseall
+	end
+
 MauvilleCity_Gym_Text_GymGuideAdvice:
 	.string "Hey, how's it going, CHAMPION-\n"
 	.string "bound {PLAYER}?\p"

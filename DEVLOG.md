@@ -6,6 +6,169 @@ read it first.
 
 ---
 
+## 2026-07-28 — Root cause found: shortcut triggers used strict elevation instead of the wildcard
+
+User report: after moving Mossdeep's entrance trigger, the return trip
+worked reliably but the forward (entrance→leader) trigger only fired
+intermittently — needed an extra "throwaway" step before it would
+reactivate. Root cause, confirmed by reading the engine code, not guessed:
+`ELEVATION_TRANSITION` (`include/global.fieldmap.h:16`) is `0`, and
+`GetCoordEventScriptAtPosition` (`src/field_control_avatar.c:956-971`) only
+matches a coord_event if the player's real elevation equals the event's
+`elevation` field *or* that field is `0` — i.e. **elevation 0 is a wildcard
+that matches any real elevation, not literally "ground level."** Vanilla's
+own `WarpToEntrance` trigger uses `0`, which is exactly why it "worked as
+expected" every time. Our `GymShortcut` trigger was set to `elevation: 3`
+— copied from the door's real warp data without ever confirming the
+*invented* landing coordinate 4 tiles further in actually has real terrain
+elevation 3. A strict, non-wildcard elevation match against a guessed
+coordinate is inherently fragile — it only fires when the player's actual
+current elevation happens to line up, which apparently isn't reliably true
+right after certain warps/movement sequences.
+
+**Fix:** audited every one of the 15 custom shortcut/return coord_events
+across all 8 gyms and switched every one still set to `elevation: 3` over
+to `elevation: 0` (the wildcard), matching vanilla's own robust pattern.
+Affected: Rustboro's return trigger, both of Lavaridge's, both of
+Petalburg's, Fortree's return trigger, and Mossdeep's `GymShortcut`. The
+already-`0` ones (Dewford, Mauville, Sootopolis, both directions; Rustboro
+and Fortree's forward triggers) were untouched — they were never at risk.
+
+Builds clean (`make modern`). This should fully resolve the intermittent
+firing behavior, but **not yet re-verified live** — next test should
+confirm the entrance-side trigger in Mossdeep (and ideally the others that
+were fixed) now fires reliably on the very first step, no reactivation walk
+needed.
+
+---
+
+## 2026-07-28 — Gym shortcuts made two-way (return leg added to all 8)
+
+Follow-up to the entrance shortcut below: the original design only handled
+entrance→leader. Mossdeep already had a return leg for free (vanilla's own
+`EventScript_WarpToEntrance`, leader→entrance, always available, no flag
+gate) — the other 7 gyms didn't have an equivalent, so a rematch still meant
+walking all the way back out after winning. Added a matching ungated return
+trigger to all 7, using Mossdeep's existing pair as the template.
+
+**Detour, tried and reverted:** first attempt added *visible* objects (a
+placeholder `OBJ_EVENT_GFX_DEOXYS_TRIANGLE` sprite, press-A to warp) for
+Mossdeep specifically, since a solid sprite can't sit on an auto-trigger
+tile without blocking it (confirmed against `event_object_movement.c` —
+object events collide by default; only an interact-driven object avoids
+that). User didn't want a visible object at all, so this was fully reverted
+back to Mossdeep's original invisible tile-trigger form before proceeding —
+no object-based markers exist anywhere in the project now.
+
+**Bounce-loop hazard, handled explicitly:** a return trigger placed exactly
+on the tile the forward warp lands you on (or vice versa) would immediately
+re-fire the instant you arrive, ping-ponging forever. Vanilla's own Mossdeep
+pair already avoids this by keeping all 4 points distinct (trigger tile ≠
+opposite landing tile, on both legs) — copied that structure for the other
+7: each new return trigger sits one tile off the leader's mat (not on it,
+since that'd also block ever talking to the leader normally), and each
+return warp lands one tile off the entrance trigger (not on it).
+
+**New return triggers (leader-side tile → entrance-side landing tile),
+ungated, plain `warp` except Mossdeep:**
+- Rustboro: (4,3) → (6,18)
+- Dewford: (3,4) → (6,26)
+- Mauville: (4,3) → (5,19)
+- Lavaridge 1F: (12,10) → (15,17) — checked clear of the 24 floor-trap warp
+  tiles
+- Petalburg: (3,108) → (5,110)
+- Fortree: (14,3) → (16,23)
+- Sootopolis 1F: (7,3) → (9,24) — checked clear of the entrance's own warp
+  tiles; still not eyeballed against the ice-crack boundary
+- Mossdeep: already had `WarpToEntrance` (21,6) → (7,30) — later moved per
+  user request: entrance trigger shifted from (7,34) to (7,30) (4 tiles
+  in), so `WarpToEntrance`'s landing spot was bumped to (7,31) to keep the
+  two from overlapping (would have re-created the exact bounce-loop this
+  session was built to avoid)
+
+Builds clean (`make modern`, one full pass, no errors) after both the
+object-detour revert and the final 7-gym rollout. **Still not tested live**
+— same open item as below, now covering both legs of all 8 gyms.
+
+**Next up:**
+- Live-verify both directions in all 8 gyms: forward shortcut stays inert
+  pre-clear and fires correctly post-clear; return leg always works; no
+  bounce-loop on either end; all landing tiles are actually walkable
+  in-engine (data-level checks only, no Porymap/mGBA visual pass yet).
+
+---
+
+## 2026-07-27 — All 8 gym leaders get a post-clear entrance shortcut warp
+
+User request: after beating a gym leader, re-fighting them for a rematch
+meant re-walking the whole puzzle floor every time. Added a coord_event
+trigger tile near each gym's front door, gated on that gym's own
+`FLAG_DEFEATED_*` flag, that warps straight to the tile in front of the
+leader once they've been beaten at least once; before that, the tile is
+inert and the player just walks over it normally.
+
+**Pattern (identical across all 8):** new `<Map>_EventScript_GymShortcut`
+in each gym's `scripts.inc` — `goto_if_unset FLAG_DEFEATED_<GYM>` bails to a
+no-op `end` if not yet cleared, otherwise `lockall` / `warp` to the leader's
+mat / `waitstate` / `releaseall`. Each map's `coord_events` array (all were
+empty except Mauville and Mossdeep, which already had puzzle-switch
+triggers) got one new trigger entry pointing at the new script. Picked a
+`VAR_TEMP_*` index not already used by that specific map for the trigger's
+dummy "always fire" condition, to avoid colliding with existing puzzle
+state on the same map.
+
+**Mossdeep is the one exception to the plain `warp` command:** its
+rotating-tile puzzle requires the specialized `warpmossdeepgym` opcode
+(`src/scrcmd.c:813-825`) instead of plain `warp` — confirmed by the map's
+own pre-existing `EventScript_WarpToEntrance`, which already does this for
+the reverse direction. Used that as the template.
+
+**Coordinates (entrance trigger → leader mat), all researched from each
+map's real `map.json`, not guessed:**
+- Rustboro (Roxanne): (5,18) → (5,3)
+- Dewford (Brawly): (5,26) → (4,4)
+- Mauville (Wattson): (4,19) → (5,3)
+- Lavaridge 1F (Flannery): (14,17) → (13,10) — chosen to avoid the 24
+  existing floor-trap warp tiles on this map
+- Petalburg (Norman): (4,110) → (4,108) — Norman's battle position is
+  dynamically moved to (4,107) by script, only 4 tiles from the entrance
+  (4,111), so this shortcut saves little walking distance; added anyway for
+  consistency across all 8 leaders per user's explicit call
+- Fortree (Winona): (15,23) → (15,3)
+- Mossdeep (Tate & Liza): (7,34) → (23,8), via `warpmossdeepgym`
+- Sootopolis 1F (Juan): (8,24) → (8,3) — chosen to land on solid ground
+  before the breakable ice bridge starts
+
+Builds clean (`make modern`, one full pass, no errors). **Not yet tested
+live in any gym** — since this was implemented from `map.json` coordinate
+data (not Porymap), the usual caveat applies: bounds/collision-correct on
+data alone, but not eyeballed for whether each trigger tile and destination
+mat actually look right/walkable in-engine. Mossdeep and Sootopolis carry
+the most risk here (rotating-tile puzzle floor and breakable-ice mechanics
+respectively) and are worth checking first.
+
+**Also this session:** codified a tentative design for endgame-state
+rotating level-100 rematch rosters (gym leaders, Elite Four, rivals) into
+`ROADMAP.md` Phase 2 — not yet built, still open on rotation mechanic and
+exact gating flags. Settled that new roster tiers should live in a separate
+data structure (mirroring how vanilla's own Battle Frontier trainers already
+sit outside `gTrainers[]`/`TRAINER_*`), not new `TRAINER_*` IDs — avoids both
+the 9-free-ID ceiling and a `MAX_TRAINERS_COUNT` bump, which would otherwise
+shift every story flag's bit index (`TRAINER_FLAGS_END`/`SYSTEM_FLAGS` in
+`include/constants/flags.h` are contiguous) and silently corrupt existing
+saves' badge/quest state.
+
+**Next up:**
+- Live-verify all 8 gym shortcuts in mGBA: trigger stays inert pre-clear,
+  fires correctly post-clear, lands on a sane walkable tile facing the
+  leader. Mossdeep/Sootopolis first (highest structural risk).
+- Continue live-verifying the 5 newer gym-leader rematch tiers (Flannery,
+  Norman, Winona, Tate & Liza, Juan) — still outstanding from 2026-07-20.
+- Decide the endgame rotating-roster rotation mechanic (alternate vs.
+  random) and real gating flags before implementation.
+
+---
+
 ## 2026-07-20 — Remaining 5 gym leaders: all 8 leaders now on the tier system
 
 Rolled out the pattern to Flannery, Norman, Winona, Tate & Liza, and Juan
@@ -926,6 +1089,29 @@ listed as already installed on the Windows machine per the Phase 0 setup):
 **Tilemap Studio** (background tilemap/pixel art — get it at
 github.com/Rangi42/tilemap-studio, used for GBA background tile/palette
 editing):
+- Gym shortcut tiles — visual warp-panel look (2026-07-28) — the 8 gyms'
+  entrance/leader shortcut tiles (see the two entries above this one) are
+  currently plain invisible floor. User wants them to visually look like
+  Mossdeep's own warp-panel tiles. Checked `data/layouts/layouts.json`:
+  each gym has its own separate secondary tileset
+  (`gTileset_MossdeepGym`, `gTileset_RustboroGym`, `gTileset_DewfordGym`,
+  `gTileset_MauvilleGym`, `gTileset_LavaridgeGym`, `gTileset_PetalburgGym`,
+  `gTileset_FortreeGym`, `gTileset_SootopolisGym`) — they only share the
+  generic `gTileset_Building` primary tileset, so the warp-panel graphic
+  doesn't exist anywhere outside `gTileset_MossdeepGym` today. Needs: copy/
+  redraw the warp-panel tile art into each of the other 7 gyms' own
+  secondary tileset, define a metatile for it, then paint that metatile
+  onto each shortcut tile's exact coordinates below (Porymap's tileset/
+  metatile editor, not the Events tab — this is tile art, not an object):
+  - Rustboro: (5,18) forward / (4,3) return
+  - Dewford: (5,26) forward / (3,4) return
+  - Mauville: (4,19) forward / (4,3) return
+  - Lavaridge 1F: (14,17) forward / (12,10) return
+  - Petalburg: (4,110) forward / (3,108) return
+  - Fortree: (15,23) forward / (14,3) return
+  - Sootopolis 1F: (8,24) forward / (7,3) return
+  - Mossdeep: already has the real art at (7,30) forward / (21,6) return —
+    no work needed, just the reference to copy from.
 - Summary screen INFO/SKILLS page background redesign (2026-07-15) — the
   code/logic side of the summary screen QoL pass is done and confirmed
   working in mGBA with placeholder layouts, but `page_info.bin` and

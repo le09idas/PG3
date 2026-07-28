@@ -228,6 +228,27 @@ LavaridgeTown_Gym_1F_EventScript_GymStatue::
 	releaseall
 	end
 
+@ Post-clear shortcut: once Flannery's been beaten, skip straight to her mat
+@ instead of re-walking the trapdoor floor.
+LavaridgeTown_Gym_1F_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_LAVARIDGE_GYM, LavaridgeTown_Gym_1F_EventScript_GymShortcutEnd
+	lockall
+	warp MAP_LAVARIDGE_TOWN_GYM_1F, 13, 10
+	waitstate
+	releaseall
+LavaridgeTown_Gym_1F_EventScript_GymShortcutEnd::
+	end
+
+@ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
+@ existing GymShortcut/WarpToEntrance pair. Always available, same as
+@ leaving the gym normally, just faster.
+LavaridgeTown_Gym_1F_EventScript_GymShortcutReturn::
+	lockall
+	warp MAP_LAVARIDGE_TOWN_GYM_1F, 15, 17
+	waitstate
+	releaseall
+	end
+
 LavaridgeTown_Gym_1F_Text_GymGuideAdvice:
 	.string "Hey, how's it going, CHAMPION-\n"
 	.string "bound {PLAYER}?\p"

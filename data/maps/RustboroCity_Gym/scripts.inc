@@ -158,6 +158,27 @@ RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish::
 	releaseall
 	end
 
+@ Post-clear shortcut: once Roxanne's been beaten, skip straight to her mat
+@ instead of re-walking the puzzle floor.
+RustboroCity_Gym_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_RUSTBORO_GYM, RustboroCity_Gym_EventScript_GymShortcutEnd
+	lockall
+	warp MAP_RUSTBORO_CITY_GYM, 5, 3
+	waitstate
+	releaseall
+RustboroCity_Gym_EventScript_GymShortcutEnd::
+	end
+
+@ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
+@ existing GymShortcut/WarpToEntrance pair. Always available, same as
+@ leaving the gym normally, just faster.
+RustboroCity_Gym_EventScript_GymShortcutReturn::
+	lockall
+	warp MAP_RUSTBORO_CITY_GYM, 6, 18
+	waitstate
+	releaseall
+	end
+
 RustboroCity_Gym_Text_GymGuideAdvice:
 	.string "Yo, how's it going?\p"
 	.string "Listen, my friend!\n"

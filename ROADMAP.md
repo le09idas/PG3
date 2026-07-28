@@ -86,6 +86,34 @@ spending them all on Hoenn's own gym leader tier 6/7 — Hoenn's expansion only
 needs ~16-24 IDs, leaving ample headroom for both. Decide the actual 2-tier
 roster per trainer (keep vanilla tier 5, or something else) before implementing.
 
+**Endgame level-100 rotating rosters (design, 2026-07-27, not yet built):**
+gym leaders, Elite Four, and rivals should each get a small pool of hand-built
+level-100 rosters, rotating on rematch, so the player reaches an indefinitely
+re-fightable "endgame state" for varied battles/XP instead of one fixed final
+boss team — flexible team-building over solving a single unbeatable roster.
+- Gym leaders: 2 rosters each (existing roster + one new "final" roster), both
+  at level 100.
+- Elite Four: 4 rosters each eventually (initial + final now; 2 more reserved
+  for post-Johto/Kanto-league content once those phases exist).
+- Rivals: same rotating-pool idea, roster count TBD.
+- Rotation mechanic (alternate vs. random-per-fight) and exact gating flags
+  not yet decided — starting idea is beat E4 once → unlocks gym leaders'
+  level-100 tier → clear those → unlocks E4's own level-100 tier → indefinite
+  rotation from then on. See memory `project_endgame_rematch_rosters.md`.
+
+**Roster storage settled (2026-07-27):** new tiers do **not** need new
+`TRAINER_*` IDs (ruled out — see below) or a `MAX_TRAINERS_COUNT` bump.
+`TRAINER_FLAGS_START`/`TRAINER_FLAGS_END` (`include/constants/flags.h`) directly
+size the flag range that `SYSTEM_FLAGS` (badges, quest flags, everything)
+is offset from — bumping the trainer count shifts every story flag's bit
+index, silently corrupting existing saves' badge/quest state. Instead: reuse
+the single existing `TRAINER_*` ID per boss and extend the
+`gTrainerPartyLevelBonus` hook (`src/battle_main.c`, built for gym-leader
+tier 6) to swap in a roster from a new, wholly separate array/struct based on
+the unlocked tier — same pattern vanilla itself uses for Battle Frontier
+trainers (`gBattleFrontierTrainers[]`, entirely outside `gTrainers[]`/
+`TRAINER_*`). No save wipe needed for this specific mechanism.
+
 ## Phase 3 — Plot hooks — [Programmatic]
 Scripted scenarios that hand the player the tickets / unlock the cut content
 (optionally gated behind battles). Mostly Poryscript. Depends on Phase 1 content.

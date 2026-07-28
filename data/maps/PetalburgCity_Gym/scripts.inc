@@ -1195,6 +1195,27 @@ PetalburgCity_Gym_EventScript_GymStatue::
 	releaseall
 	end
 
+@ Post-clear shortcut: once Norman's been beaten, skip straight to near his
+@ mat instead of re-walking the long trainer corridor.
+PetalburgCity_Gym_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_PETALBURG_GYM, PetalburgCity_Gym_EventScript_GymShortcutEnd
+	lockall
+	warp MAP_PETALBURG_CITY_GYM, 4, 108
+	waitstate
+	releaseall
+PetalburgCity_Gym_EventScript_GymShortcutEnd::
+	end
+
+@ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
+@ existing GymShortcut/WarpToEntrance pair. Always available, same as
+@ leaving the gym normally, just faster.
+PetalburgCity_Gym_EventScript_GymShortcutReturn::
+	lockall
+	warp MAP_PETALBURG_CITY_GYM, 5, 110
+	waitstate
+	releaseall
+	end
+
 PetalburgCity_Gym_Text_DadYoureHereWithYourPokemon:
 	.string "DAD: Hm?\p"
 	.string "Well, if it isn't {PLAYER}!\n"

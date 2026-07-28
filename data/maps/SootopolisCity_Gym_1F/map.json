@@ -64,7 +64,26 @@
       "dest_warp_id": "0"
     }
   ],
-  "coord_events": [],
+  "coord_events": [
+    {
+      "type": "trigger",
+      "x": 8,
+      "y": 24,
+      "elevation": 0,
+      "var": "VAR_TEMP_0",
+      "var_value": "0",
+      "script": "SootopolisCity_Gym_1F_EventScript_GymShortcut"
+    },
+    {
+      "type": "trigger",
+      "x": 7,
+      "y": 3,
+      "elevation": 0,
+      "var": "VAR_TEMP_1",
+      "var_value": "0",
+      "script": "SootopolisCity_Gym_1F_EventScript_GymShortcutReturn"
+    }
+  ],
   "bg_events": [
     {
       "type": "sign",

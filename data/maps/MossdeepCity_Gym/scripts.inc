@@ -248,7 +248,7 @@ MossdeepCity_Gym_EventScript_ClearSwitch4::
 
 MossdeepCity_Gym_EventScript_WarpToEntrance::
 	lockall
-	warpmossdeepgym MAP_MOSSDEEP_CITY_GYM, 7, 30
+	warpmossdeepgym MAP_MOSSDEEP_CITY_GYM, 7, 31
 	waitstate
 	releaseall
 	end
@@ -412,6 +412,20 @@ MossdeepCity_Gym_EventScript_RedFloorSwitch::
 	turnrotatingtileobjects
 	waitmovement 0
 	freerotatingtilepuzzle
+	end
+
+@ Post-clear shortcut: once Tate & Liza have been beaten, skip straight to
+@ their mat instead of re-solving the rotating-tile puzzle. Must use
+@ warpmossdeepgym (not plain warp) -- this map's rotating-tile puzzle state
+@ needs the specialized warp handling, same as EventScript_WarpToEntrance
+@ (which already handles the reverse leader-to-entrance direction).
+MossdeepCity_Gym_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_MOSSDEEP_GYM, MossdeepCity_Gym_EventScript_GymShortcutEnd
+	lockall
+	warpmossdeepgym MAP_MOSSDEEP_CITY_GYM, 23, 8
+	waitstate
+	releaseall
+MossdeepCity_Gym_EventScript_GymShortcutEnd::
 	end
 
 MossdeepCity_Gym_Text_GymGuideAdvice:

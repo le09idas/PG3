@@ -223,6 +223,27 @@ SootopolisCity_Gym_1F_EventScript_GymStatue::
 	releaseall
 	end
 
+@ Post-clear shortcut: once Juan's been beaten, skip straight to his mat
+@ instead of re-crossing the breakable ice bridge.
+SootopolisCity_Gym_1F_EventScript_GymShortcut::
+	goto_if_unset FLAG_DEFEATED_SOOTOPOLIS_GYM, SootopolisCity_Gym_1F_EventScript_GymShortcutEnd
+	lockall
+	warp MAP_SOOTOPOLIS_CITY_GYM_1F, 8, 3
+	waitstate
+	releaseall
+SootopolisCity_Gym_1F_EventScript_GymShortcutEnd::
+	end
+
+@ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
+@ existing GymShortcut/WarpToEntrance pair. Always available, same as
+@ leaving the gym normally, just faster.
+SootopolisCity_Gym_1F_EventScript_GymShortcutReturn::
+	lockall
+	warp MAP_SOOTOPOLIS_CITY_GYM_1F, 9, 24
+	waitstate
+	releaseall
+	end
+
 SootopolisCity_Gym_1F_Text_GymGuideAdvice:
 	.string "Yo! How's it going, CHAMPION-\n"
 	.string "bound {PLAYER}?\p"
