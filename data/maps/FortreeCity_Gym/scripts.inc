@@ -181,15 +181,18 @@ FortreeCity_Gym_EventScript_GymStatue::
 	releaseall
 	end
 
-@ Post-clear shortcut: once Winona's been beaten, skip straight to her mat
-@ instead of re-walking the rope-bridge floor.
+@ Post-clear shortcut: once Winona's been beaten, skip straight to near her
+@ side of the gym (next to the return pad) instead of re-walking the
+@ rope-bridge floor.
 FortreeCity_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_FORTREE_GYM, FortreeCity_Gym_EventScript_GymShortcutEnd
 	lockall
-	warp MAP_FORTREE_CITY_GYM, 15, 3
+	goto_if_unset FLAG_DEFEATED_FORTREE_GYM, FortreeCity_Gym_EventScript_GymShortcutEnd
+	warp MAP_FORTREE_CITY_GYM, 16, 4
 	waitstate
 	releaseall
+	end
 FortreeCity_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 @ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
@@ -197,7 +200,7 @@ FortreeCity_Gym_EventScript_GymShortcutEnd::
 @ leaving the gym normally, just faster.
 FortreeCity_Gym_EventScript_GymShortcutReturn::
 	lockall
-	warp MAP_FORTREE_CITY_GYM, 16, 23
+	warp MAP_FORTREE_CITY_GYM, 16, 19
 	waitstate
 	releaseall
 	end

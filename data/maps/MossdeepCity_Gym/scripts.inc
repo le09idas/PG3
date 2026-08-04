@@ -420,12 +420,14 @@ MossdeepCity_Gym_EventScript_RedFloorSwitch::
 @ needs the specialized warp handling, same as EventScript_WarpToEntrance
 @ (which already handles the reverse leader-to-entrance direction).
 MossdeepCity_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_MOSSDEEP_GYM, MossdeepCity_Gym_EventScript_GymShortcutEnd
 	lockall
-	warpmossdeepgym MAP_MOSSDEEP_CITY_GYM, 23, 8
+	goto_if_unset FLAG_DEFEATED_MOSSDEEP_GYM, MossdeepCity_Gym_EventScript_GymShortcutEnd
+	warpmossdeepgym MAP_MOSSDEEP_CITY_GYM, 21, 7
 	waitstate
 	releaseall
+	end
 MossdeepCity_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 MossdeepCity_Gym_Text_GymGuideAdvice:

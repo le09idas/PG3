@@ -141,7 +141,7 @@
       "x": 17,
       "y": 19,
       "elevation": 0,
-      "var": "VAR_TEMP_1",
+      "var": "VAR_TEMP_4",
       "var_value": "0",
       "script": "FortreeCity_Gym_EventScript_GymShortcut"
     },
@@ -150,7 +150,7 @@
       "x": 17,
       "y": 4,
       "elevation": 0,
-      "var": "VAR_TEMP_2",
+      "var": "VAR_TEMP_5",
       "var_value": "0",
       "script": "FortreeCity_Gym_EventScript_GymShortcutReturn"
     }

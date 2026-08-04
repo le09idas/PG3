@@ -309,15 +309,18 @@ MauvilleCity_Gym_EventScript_GymStatue::
 	releaseall
 	end
 
-@ Post-clear shortcut: once Wattson's been beaten, skip straight to his mat
-@ instead of re-walking the electric-barrier puzzle floor.
+@ Post-clear shortcut: once Wattson's been beaten, skip straight to near his
+@ side of the gym (next to the return pad) instead of re-walking the
+@ electric-barrier puzzle floor.
 MauvilleCity_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_MAUVILLE_GYM, MauvilleCity_Gym_EventScript_GymShortcutEnd
 	lockall
-	warp MAP_MAUVILLE_CITY_GYM, 5, 3
+	goto_if_unset FLAG_DEFEATED_MAUVILLE_GYM, MauvilleCity_Gym_EventScript_GymShortcutEnd
+	warp MAP_MAUVILLE_CITY_GYM, 3, 5
 	waitstate
 	releaseall
+	end
 MauvilleCity_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 @ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
@@ -325,7 +328,7 @@ MauvilleCity_Gym_EventScript_GymShortcutEnd::
 @ leaving the gym normally, just faster.
 MauvilleCity_Gym_EventScript_GymShortcutReturn::
 	lockall
-	warp MAP_MAUVILLE_CITY_GYM, 5, 19
+	warp MAP_MAUVILLE_CITY_GYM, 3, 20
 	waitstate
 	releaseall
 	end

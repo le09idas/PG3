@@ -1196,14 +1196,17 @@ PetalburgCity_Gym_EventScript_GymStatue::
 	end
 
 @ Post-clear shortcut: once Norman's been beaten, skip straight to near his
-@ mat instead of re-walking the long trainer corridor.
+@ side of the gym (next to the return pad) instead of re-walking the long
+@ trainer corridor.
 PetalburgCity_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_PETALBURG_GYM, PetalburgCity_Gym_EventScript_GymShortcutEnd
 	lockall
-	warp MAP_PETALBURG_CITY_GYM, 4, 108
+	goto_if_unset FLAG_DEFEATED_PETALBURG_GYM, PetalburgCity_Gym_EventScript_GymShortcutEnd
+	warp MAP_PETALBURG_CITY_GYM, 0, 3
 	waitstate
 	releaseall
+	end
 PetalburgCity_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 @ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
@@ -1211,7 +1214,7 @@ PetalburgCity_Gym_EventScript_GymShortcutEnd::
 @ leaving the gym normally, just faster.
 PetalburgCity_Gym_EventScript_GymShortcutReturn::
 	lockall
-	warp MAP_PETALBURG_CITY_GYM, 5, 110
+	warp MAP_PETALBURG_CITY_GYM, 1, 111
 	waitstate
 	releaseall
 	end

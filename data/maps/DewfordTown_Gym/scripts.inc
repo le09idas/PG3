@@ -335,15 +335,18 @@ DewfordTown_Gym_EventScript_GymStatue::
 	releaseall
 	end
 
-@ Post-clear shortcut: once Brawly's been beaten, skip straight to his mat
-@ instead of re-walking the darkened puzzle floor.
+@ Post-clear shortcut: once Brawly's been beaten, skip straight to near his
+@ side of the gym (next to the return pad) instead of re-walking the
+@ darkened puzzle floor.
 DewfordTown_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_DEWFORD_GYM, DewfordTown_Gym_EventScript_GymShortcutEnd
 	lockall
-	warp MAP_DEWFORD_TOWN_GYM, 4, 4
+	goto_if_unset FLAG_DEFEATED_DEWFORD_GYM, DewfordTown_Gym_EventScript_GymShortcutEnd
+	warp MAP_DEWFORD_TOWN_GYM, 1, 5
 	waitstate
 	releaseall
+	end
 DewfordTown_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 @ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
@@ -351,7 +354,7 @@ DewfordTown_Gym_EventScript_GymShortcutEnd::
 @ leaving the gym normally, just faster.
 DewfordTown_Gym_EventScript_GymShortcutReturn::
 	lockall
-	warp MAP_DEWFORD_TOWN_GYM, 6, 26
+	warp MAP_DEWFORD_TOWN_GYM, 2, 22
 	waitstate
 	releaseall
 	end

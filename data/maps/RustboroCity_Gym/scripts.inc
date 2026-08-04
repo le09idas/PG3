@@ -158,15 +158,18 @@ RustboroCity_Gym_EventScript_RoxanneRematchCall_Finish::
 	releaseall
 	end
 
-@ Post-clear shortcut: once Roxanne's been beaten, skip straight to her mat
-@ instead of re-walking the puzzle floor.
+@ Post-clear shortcut: once Roxanne's been beaten, skip straight to near her
+@ side of the gym (next to the return pad) instead of re-walking the puzzle
+@ floor.
 RustboroCity_Gym_EventScript_GymShortcut::
-	goto_if_unset FLAG_DEFEATED_RUSTBORO_GYM, RustboroCity_Gym_EventScript_GymShortcutEnd
 	lockall
-	warp MAP_RUSTBORO_CITY_GYM, 5, 3
+	goto_if_unset FLAG_DEFEATED_RUSTBORO_GYM, RustboroCity_Gym_EventScript_GymShortcutEnd
+	warp MAP_RUSTBORO_CITY_GYM, 10, 4
 	waitstate
 	releaseall
+	end
 RustboroCity_Gym_EventScript_GymShortcutEnd::
+	releaseall
 	end
 
 @ Two-way return leg: warps back near the entrance, mirroring Mossdeep's
@@ -174,7 +177,7 @@ RustboroCity_Gym_EventScript_GymShortcutEnd::
 @ leaving the gym normally, just faster.
 RustboroCity_Gym_EventScript_GymShortcutReturn::
 	lockall
-	warp MAP_RUSTBORO_CITY_GYM, 6, 18
+	warp MAP_RUSTBORO_CITY_GYM, 9, 19
 	waitstate
 	releaseall
 	end

@@ -6,6 +6,237 @@ read it first.
 
 ---
 
+## 2026-08-04 — Session wrap-up: gym leader shortcut/teleport pads — DONE, live-verified
+
+**Status: complete.** All 8 gyms' post-clear shortcut pads (entrance ↔ leader,
+two-way) are built, live-verified, and working as intended:
+- Entrance-side pad gated on `FLAG_DEFEATED_<GYM>`, inert (no freeze, no
+  warp) until that leader's been beaten; leader-side return pad always
+  active, no gate.
+- Landing spots recalibrated to sit next to the *pads themselves* (not the
+  leader's mat or the real door), matching Mossdeep/Tate & Liza's own
+  design, with the freeze bug (missing `lockall`/`releaseall` symmetry in
+  the inert branch) found and fixed across all 8 gyms including Mossdeep.
+- Visual warp-panel icon in place on all 8, including the Fortree
+  `VAR_TEMP` collision fix and the Sootopolis waterfall-VRAM-collision fix.
+- User confirmed live in mGBA tonight: `0019.gym_roxanne` (pre-defeat, the
+  exact freeze repro) now behaves correctly.
+
+**Remaining low-priority follow-up, not blocking:** only Rustboro's
+pre-defeat case was explicitly re-verified after the lockall/releaseall
+fix; the other 6 gyms + Mossdeep share the identical fix but haven't each
+been individually re-confirmed pre-defeat. Worth a quick spot-check
+whenever next passing through one of those gyms early-game, but not worth
+a dedicated session.
+
+**Next active task:** resume Phase 2 (Match Call / rematch overhaul) —
+this is where things stood before the shortcut-tile detour. Roxanne's
+deterministic rematch-tier gating (`GetRoxanneAllowedRematchTier()` +
+`UpdateRematchIfDefeated()`, see 2026-07-19/20 entries below) is built and
+was being scaled out to the other 7 gym leaders ("Added logic to remaining
+gym leaders for rematches," 2026-07-20). Pick that back up: confirm each
+of the other 7 leaders' rematch gating is wired the same way Roxanne's is,
+then live-verify. See `ROADMAP.md` Phase 2 for the full plan (trainer-ID
+budget notes, endgame level-100 rotating rosters design).
+
+---
+
+## 2026-08-04 — Fixed freeze when stepping on a not-yet-active shortcut pad (missing lockall/releaseall symmetry)
+
+User report: on the `0019.gym_roxanne` save (pre-Roxanne), walking onto
+Rustboro's entrance-side shortcut pad froze the game entirely — no
+movement, no menu, music kept playing. `0020` (post-Roxanne, same tile)
+worked fine. That A/B pointed straight at the one real code difference
+between the two branches.
+
+**Root-caused by tracing the actual engine call path, not guessed:**
+`TryStartCoordEventScript` (`src/field_control_avatar.c`) calls
+`ScriptContext_SetupScript()` for *any* matching coord_event — including
+ours — which immediately calls `LockPlayerFieldControls()`
+(`src/script.c:182`), regardless of whether the script itself ever calls
+`lockall`. The gated (not-yet-defeated) branch of every `GymShortcut`
+script was just `goto_if_unset FLAG, ...End` → `end`, with no `lockall`
+and no `release`/`releaseall` anywhere in that path. Traced `ScrCmd_end`
+through `RunScriptCommand`/`ScriptContext_RunScript` and confirmed the
+*script context* itself does shut down and call
+`UnlockPlayerFieldControls()` correctly on plain `end` — but
+`releaseall`/`release` (`src/scrcmd.c:1239`) additionally call
+`HideFieldMessageBox`, `ObjectEventClearHeldMovementIfFinished`,
+`ScriptMovement_UnfreezeObjectEvents`, and `UnfreezeObjectEvents` — real
+object-event-level cleanup that only ever ran in the *set* (warp) branch,
+never in the inert one. The two branches were structurally asymmetric in a
+way nothing else in this codebase's trigger scripts is.
+
+**Fix:** made every gym's `GymShortcut` script symmetric — `lockall` runs
+unconditionally up front (before the flag check), and *both* the inert
+end-label and the post-warp path now call `releaseall` before `end`,
+mirroring the exact lock/release shape already proven to work. Applied to
+all 8 gyms, including Mossdeep (Tate & Liza) — its `GymShortcut` had the
+identical asymmetric shape and was never actually tested pre-defeat before
+now, so it very likely had the same latent freeze.
+
+Builds clean (`make modern`). **User should re-verify specifically on the
+`0019.gym_roxanne` save** (pre-defeat, walk onto the entrance pad) — that's
+the exact repro case — plus spot-check one or two of the other 7 gyms
+pre-defeat since they shared the same bug.
+
+---
+
+## 2026-08-04 — Mossdeep's own GymShortcut brought in line with the pattern it inspired
+
+User tested the other 7 gyms' recalibrated pad-relative destinations
+(below) and wanted Mossdeep (Tate & Liza) to match too, for consistency.
+`MossdeepCity_Gym_EventScript_GymShortcut`'s destination changed from
+`(23, 8)` — an inconsistent (2,2) offset from the `WarpToEntrance` pad at
+`(21, 6)` — to `(21, 7)`, one tile directly south of that pad, matching the
+"adjacent to the counterpart pad" convention now used everywhere else.
+Verified walkable and unoccupied via `map.bin`/`map.json` first.
+`WarpToEntrance`'s own destination `(7, 31)` was already exactly this
+pattern (one tile off `GymShortcut`'s pad at `(7, 30)`) and was left
+untouched.
+
+Builds clean (`make modern`). **Not yet live-verified.**
+
+---
+
+## 2026-08-04 — Gym shortcut destinations now land next to the pads themselves, not the leader's mat or the door
+
+Design change from the "recalibrate to fixed anchors" approach two entries
+below: user wanted landing spots tied to the shortcut pads themselves (like
+Tate & Liza's own Mossdeep pair), not to the leader's mat or the real
+entrance door. Confirmed against Mossdeep's actual data first — even there,
+`WarpToEntrance` (pad at `(21,6)`) lands at `(7,31)`, one tile off the
+`GymShortcut` pad `(7,30)`, and `GymShortcut` lands at `(23,8)`, off the
+`WarpToEntrance` pad — never the literal pad tile, always adjacent to it
+(landing exactly on the counterpart trigger tile would refire it instantly,
+an infinite bounce loop).
+
+User supplied a "near-entrance" and "near-leader" coordinate per gym
+(picked visually in Porymap, one tile off each pad). Sanity-checked every
+one against `map.bin` collision before wiring in; all were clean except
+Petalburg's `near-entrance (1, 11)`, which decoded to a wall — off by a
+missing digit from `(1, 111)`, confirmed with the user and corrected.
+
+Applied to all 7 gyms (`GymShortcut` = near-leader destination,
+`GymShortcutReturn` = near-entrance destination):
+- Rustboro: fwd → `(10, 4)`, ret → `(9, 19)`
+- Dewford: fwd → `(1, 5)`, ret → `(2, 22)`
+- Mauville: fwd → `(3, 5)`, ret → `(3, 20)`
+- Lavaridge: fwd → `(14, 12)`, ret → `(15, 18)`
+- Petalburg: fwd → `(0, 3)`, ret → `(1, 111)`
+- Fortree: fwd → `(16, 4)`, ret → `(16, 19)`
+- Sootopolis: fwd → `(13, 3)`, ret → `(6, 22)`
+
+Also updated the stale "skip straight to her/his mat" comments in each
+gym's `scripts.inc` — they now land next to the return/forward pad, not
+literally at the leader's mat, so the comments say "near her/his side of
+the gym (next to the return pad)" instead. Mossdeep itself was left
+untouched — it already works and was only used as the reference pattern.
+
+Builds clean (`make modern`). **Not yet live-verified.**
+
+---
+
+## 2026-08-04 — Fixed Fortree shortcut not firing (VAR_TEMP collision) and Sootopolis icon showing as running water (VRAM animation collision)
+
+User report after the above: Fortree's shortcut tile didn't work at all, and
+Sootopolis's tile showed a visual glitch that "looks like running water."
+Both root-caused by reading the actual engine/tileset code, not guessed.
+
+**Fortree — real bug, not cosmetic:** its `GymShortcut`/`GymShortcutReturn`
+coord_events used `VAR_TEMP_1`/`VAR_TEMP_2` as their "always fire" dummy
+condition (`var == 0`). But `data/maps/FortreeCity_Gym/scripts.inc:14`
+already has an explicit note: "This rotating gate puzzle makes use of
+VAR_TEMP_0 - VAR_TEMP_3" — the gate puzzle owns all four. The instant a
+player touches the rotating-gate puzzle, `VAR_TEMP_1`/`_2` get overwritten
+with real puzzle state and never return to 0 for the rest of that map visit
+(`VAR_TEMP_*` only resets on map (re)load), permanently killing both
+shortcut triggers. This is exactly the collision the original 2026-07-27
+session said it checked for per-map ("picked a VAR_TEMP index not already
+used by that map's existing puzzle state") but missed for Fortree
+specifically. **Fix:** moved both to `VAR_TEMP_4`/`VAR_TEMP_5` (confirmed
+free — grepped every other gym's scripts.inc too; Lavaridge's own puzzle
+uses `VAR_TEMP_B`-`F`, no other gym touches `VAR_TEMP` outside the shortcut
+triggers themselves, so this was Fortree's problem alone).
+
+**Sootopolis — real bug, not a bad palette:** Sootopolis Gym's tileset has
+an actual animation callback (`TilesetAnim_SootopolisGym` /
+`QueueAnimTiles_SootopolisGym_Waterfalls` in `src/tileset_anims.c:1119`)
+that writes fresh waterfall frames **directly into VRAM** every animation
+tick, at hardcoded tile offsets `NUM_TILES_IN_PRIMARY + 496` (12 tiles, side
+waterfall) and `+464` (20 tiles, front waterfall) — independent of whatever
+`tiles.png` has at those addresses. The 2026-08-04 icon-tile work appended
+its new 16-tile row starting exactly at local tile 496 (Sootopolis's
+tileset was already at 496/512 before that row), landing the actual icon
+pixel data at local tiles 496-503 — squarely inside the side-waterfall's
+live-overwritten range. The icon was never corrupted on disk; it was being
+redrawn as flowing water in VRAM every frame, which is exactly the "running
+water" symptom. **Fix:** copied the icon's real pixel data (local tiles
+496-499, the entrance-side pose) into local tiles 508-511 — the only 4
+tiles in the whole secondary tileset genuinely untouched by any animation
+callback (front waterfall owns 464-483, side waterfall owns 496-507) — and
+repointed *both* `GymShortcut` and `GymShortcutReturn` icon metatiles
+(634/635) at those 4 tiles instead of their original ranges. This means
+Sootopolis's two shortcut tiles now share one icon pose instead of Mossdeep's
+two slightly different poses (no room left in the 512-tile secondary cap for
+a second unique 4-tile pose once 12 of the only 16 free tiles are
+unusable) — a minor cosmetic simplification, not a bug.
+
+Builds clean (`make modern`) after both fixes. **Not yet live-verified** —
+next step is confirming in-game that Fortree's shortcut now fires reliably
+even after touching the rotating-gate puzzle, and that Sootopolis's icon
+renders as a static disc instead of animating.
+
+---
+
+## 2026-08-04 — Recalibrated gym shortcut destinations after Porymap trigger moves; found and fixed a stale Petalburg destination
+
+Follow-up to the pad-icon work below. Separately from that automated tile-graphic
+edit, the user's own concurrent Porymap session moved all 14 shortcut trigger
+tiles (forward + return, all 7 non-Mossdeep gyms) to new coordinates. Asked
+whether destinations should now be recomputed relative to the *new* trigger
+positions (mirroring Mossdeep's own dual-pad design) or left alone where still
+valid — user chose: recalibrate relative to the new trigger positions.
+
+**Investigated before touching anything, not guessed:** decoded every touched
+gym's `map.bin` (collision bits) and cross-referenced `warp_events`/leader
+`object_events` from `map.json`. Found a strict, consistent convention already
+in place across all 7 gyms, independent of trigger position:
+- **Forward destination** (post-clear shortcut → near leader) = leader's own
+  `object_events` position **+ (0, 1)** — one tile directly south, their
+  battle mat. True in Dewford, Rustboro, Fortree, Lavaridge, Mauville,
+  Sootopolis, *and* was supposed to be true in Petalburg.
+- **Return destination** (leader-side → near entrance) = the real exit
+  `warp_events` door **+ (0, -1)** — one tile north of the door. True in all 7.
+
+Since neither leader position nor door position moved in this session (only
+the trigger *tiles* did, and only by a few tiles within the same room in 6 of
+the 7 cases — confirmed via `map.bin` collision decode that trigger and
+destination remain in the same connected walkable area), 6 of the 7 gyms'
+destinations were already correct and untouched.
+
+**Petalburg was the exception, and genuinely broken:** its forward-shortcut
+destination was hardcoded to `(4, 108)` — right by the entrance, not Norman.
+Norman's actual `object_events` position is `(4, 2)`. The comment above the
+script even claimed this warps you "near his mat," which was false; likely
+stale from before Norman's position was set, or an original mistake back in
+the 2026-07-27 session. The leader-side trigger's new position, `(0, 2)`, is
+now right next to Norman, exposing the mismatch.
+
+**Fix:** `PetalburgCity_Gym_EventScript_GymShortcut`'s warp destination
+changed from `(4, 108)` to `(4, 3)` — Norman `(4, 2)` + `(0, 1)`, matching the
+same convention every other gym already uses. Verified `(4, 3)` is walkable
+and unoccupied via `map.bin`/`map.json` before committing to it. Return leg
+`(5, 110)` was untouched — still correctly `(5, 111)` door `- (0, 1)`.
+
+Builds clean (`make modern`). **Not yet live-verified** — next step is an
+in-game check that beating Norman now drops you right in front of him via the
+shortcut, and that the return leg (and the other 6 gyms' shortcuts, unaffected
+by this fix but still carrying forward the pad-icon changes below) all still
+work post-icon, post-move.
+
+---
+
 ## 2026-08-04 — Gym shortcut tiles now have Mossdeep's warp-panel icon (all 7 remaining gyms)
 
 Closed out the "Need to update tile in Porymap" item from the shortcut-tile
