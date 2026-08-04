@@ -138,8 +138,8 @@
   "coord_events": [
     {
       "type": "trigger",
-      "x": 15,
-      "y": 23,
+      "x": 17,
+      "y": 19,
       "elevation": 0,
       "var": "VAR_TEMP_1",
       "var_value": "0",
@@ -147,8 +147,8 @@
     },
     {
       "type": "trigger",
-      "x": 14,
-      "y": 3,
+      "x": 17,
+      "y": 4,
       "elevation": 0,
       "var": "VAR_TEMP_2",
       "var_value": "0",

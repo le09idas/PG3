@@ -6,6 +6,108 @@ read it first.
 
 ---
 
+## 2026-08-04 — Gym shortcut tiles now have Mossdeep's warp-panel icon (all 7 remaining gyms)
+
+Closed out the "Need to update tile in Porymap" item from the shortcut-tile
+commit: the 7 non-Mossdeep gyms' shortcut/return tiles were plain invisible
+floor; wanted them to visually match Mossdeep's own warp-panel icon.
+
+**Why this needed direct file edits instead of Porymap's UI:** each gym has
+its *own* secondary tileset (own `tiles.png`, own 16-color palettes) — there
+is no shared/central tileset for this kind of specialty art, and Porymap
+doesn't support copying a tile graphic between two different tilesets. Tried
+walking this manually in Porymap across a few messages; too many disconnected
+moving parts (raw tile sheet vs. palette slots vs. metatile layer
+composition) to do by hand across 7 separate tilesets without it being
+extremely tedious and error-prone. Ended up doing it as direct, verified file
+edits instead.
+
+**What the icon actually is, confirmed by decoding the binary data (not
+guessed):** at Mossdeep gym's `WarpToEntrance` trigger tiles (21,6) and
+(7,30)), the metatile is *two layers* — a bottom layer (that gym's ordinary
+floor tiles) plus a top-layer 2×2 overlay (4 tiles, palette slot 8: a black
+ring/disc icon). `tiles.png` files in this codebase are plain 16-shade
+grayscale index images — the real color only comes from the per-tile
+`palette` field in `metatiles.bin` — so the icon's raw pixel data is 100%
+portable between tilesets with zero recoloring; only the *palette* (16 RGB
+values) needed to be copied into each target gym's own free palette slot.
+
+**Per gym:** added one new row of tiles to `tiles.png` (4 used for the icon,
+12 spare), wrote Mossdeep's palette-8 colors into a free palette slot
+(`02` for Rustboro/Dewford/Mauville/Fortree/Sootopolis, `04` for
+Lavaridge/Petalburg — their `02`-`04` weren't uniformly free), and appended
+two new metatiles per gym (forward + return) that keep each gym's own
+existing bottom-layer floor tiles untouched and add the icon as the top
+layer (attr `0x1000`, matching the proven-working 2-layer value already used
+elsewhere in every one of these tilesets). `map.bin` was updated at both the
+forward (entrance) and return (leader-side) shortcut coordinates to point at
+the new metatiles, with collision/elevation bits preserved unchanged.
+Deliberately did **not** touch the two "landing" coordinates (only the two
+trigger tiles get the icon) and did **not** decorate Mossdeep itself
+(already correct — used as the read-only source).
+
+**Bounds-checked, not just assumed:** secondary tilesets cap at 512 tiles /
+512 metatiles (`NUM_TILES_TOTAL` 1024 minus `NUM_TILES_IN_PRIMARY` 512, per
+`include/fieldmap.h`). Sootopolis's tileset was already at 496/512 tiles —
+an earlier attempt that added a full 2-row (32-tile) block per gym would
+have pushed Sootopolis's new tile IDs to 1024/1025, overflowing the 10-bit
+tile-ID field and corrupting the tile lookup. Caught before committing
+anything; reverted via `git checkout` on just the touched files (4 unrelated
+files with pending changes from the user's concurrent Porymap session —
+`DewfordTown_Gym/map.json`, `map_groups.json`,
+`region_map_sections.json`, `wild_encounters.json` — were deliberately left
+alone, not part of this edit) and redone using a single new row (16 tiles)
+per gym instead, which fits every gym including Sootopolis exactly at
+496+16=512.
+
+**Verified before calling it done:** wrote a throwaway compositing script
+that renders each gym's new forward metatile (bottom floor + top icon,
+correct per-tile palette) to a PNG — visually confirms the icon shows
+correctly over each gym's own distinct floor color. Also decoded `map.bin`
+back for all 14 touched coordinates (7 gyms × forward/return) to confirm
+the metatile ID landed correctly and collision/elevation were preserved
+byte-for-byte.
+
+**Follow-up fix, same session:** user reported magenta showing in the placed
+icon. Root cause: used palette slots 2 and 4 for the transplanted colors,
+but this codebase reserves palette banks 0-5 for the *primary* tileset and
+6-12 for the secondary (`NUM_PALS_IN_PRIMARY 6` / `NUM_PALS_TOTAL 13` in
+`include/fieldmap.h`) — slots 2/4 are primary-owned, so the colors I wrote
+into the secondary tileset's own `02.pal`/`04.pal` were never actually read
+by the build; what rendered was whatever primary's real bank 2/4 contains.
+Moved the icon's colors to a genuinely free secondary-owned slot per gym
+(9, 10, or 11, whichever was open — varies per gym), reverted the
+wrongly-used primary-range slot back to its original placeholder content,
+and retagged the icon tiles' palette field to the correct slot. Re-rendered
+all 14 tiles to confirm no magenta remains.
+
+**Second follow-up, same session — Mossdeep's *other* icon variant added
+too:** Mossdeep actually uses two slightly different poses of the same ring
+icon — the one at (7,30)/metatile 549 (used above) on the entrance side,
+and a second one at (3,28)/metatile 528 (tiles 520/521/536/537, same
+palette 8) on the leader side. Replicated the same "hit both directions"
+logic properly: added the second variant's 4 tiles into each gym's already
+partially-empty tile row (the first pass only used 4 of the 16 slots in the
+row it added, leaving 12 spare — reused 4 of those instead of extending the
+image again, avoiding any risk of repeating the Sootopolis near-512-limit
+issue) and swapped it onto each gym's **return** (leader-side) metatile,
+leaving forward (entrance-side) on the original variant — mirroring
+Mossdeep's own entrance-vs-leader convention exactly. No palette files
+touched this round (reused the already-corrected slots), so no risk of the
+magenta bug recurring. Re-rendered all 14 tiles again to confirm.
+
+**Not done yet — this session was on Windows, no `make` toolchain
+available:** hasn't been built (`make modern`) or opened in Porymap/mGBA
+yet. Next step on Ubuntu: pull, build, and confirm it actually renders
+correctly in-game (the render-script preview is a strong signal but isn't
+the same as the real GBA renderer/VRAM path) — then live-verify the
+shortcuts still fire correctly post-edit (this touched `map.bin`'s metatile
+ID field and `metatiles.bin`/palette data only, not the coord_event scripts
+or their elevation gating from the 2026-07-28 fix, so should be unaffected,
+but worth confirming).
+
+---
+
 ## 2026-07-28 — Root cause found: shortcut triggers used strict elevation instead of the wildcard
 
 User report: after moving Mossdeep's entrance trigger, the return trip
